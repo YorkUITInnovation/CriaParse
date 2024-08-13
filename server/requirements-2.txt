@@ -1,0 +1,11 @@
+mammoth==1.7.1
+beautifulsoup4==4.12.3
+pyarrow==16.0.0
+
+# Build 70
+SemanticDocumentParser @ git+https://github.com/YorkUITInnovation/SemanticDocumentParser.git
+
+# Don't freak out, the token is read-only on CriadexSDK
+# Due for renewal: November 20th, 2024
+# v1.2.0
+criadexsdk @ git+https://github.com/YorkUITInnovation/CriadexSDK.git

@@ -1,0 +1,2 @@
+class ParseModelMissingError(RuntimeError):
+    pass
