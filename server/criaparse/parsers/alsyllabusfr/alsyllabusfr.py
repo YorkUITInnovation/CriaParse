@@ -3,7 +3,7 @@ from typing import List
 from fastapi import UploadFile
 
 from criaparse.parser import Parser, Element
-from criaparse.parsers.alsyllabus.conversions import run_converter
+from criaparse.parsers.alsyllabusfr.conversions import run_converter
 
 
 class AlSyllabusParserFr(Parser):

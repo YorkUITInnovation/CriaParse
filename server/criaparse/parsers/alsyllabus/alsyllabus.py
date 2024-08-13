@@ -1,10 +1,10 @@
-from io import BytesIO
 from typing import List
 
 from fastapi import UploadFile
 
-from criaparse.parser import Parser, Element
-from criaparse.parsers.alsyllabus.conversions import run_converter
+from criaparse.parser import Parser, Element, ElementType
+from criaparse.parsers.alsyllabus.al_types import AlNode
+from criaparse.parsers.alsyllabus.conversions import convert_file
 
 
 class AlSyllabusParser(Parser):
@@ -30,8 +30,18 @@ class AlSyllabusParser(Parser):
 
         """
 
-        parsed_elements: List[Element] = run_converter(
-            docx=self.to_buffer(file=file)
+        al_nodes: List[AlNode] = convert_file(
+            file_bytes=self.to_buffer(file=file)
         )
 
-        return parsed_elements
+        elements: List[Element] = []
+        for node in al_nodes:
+            elements.append(
+                Element(
+                    type=ElementType.of(node['type']),
+                    text=node['text'],
+                    metadata=node['metadata']
+                )
+            )
+
+        return elements
