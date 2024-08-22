@@ -4,42 +4,53 @@ FROM        python:3.11-slim-bullseye AS base
 
 LABEL       author="Isaac Kogan" maintainer="koganisa@yorku.ca"
 
-#           LINUX PACKAGES
+ARG USER="cria"
+ARG USER_ID="1000"
+ARG PYTHON="python3"
 
-RUN         apt-get update \
-            && apt-get -y install git gcc g++ ca-certificates dnsutils curl iproute2 ffmpeg procps tini \
-            && useradd -m -d /home/cria cria
+RUN apt-get update \
+ && apt-get -y install git gcc g++ ca-certificates dnsutils curl iproute2 ffmpeg procps tini libmagic1 \
+ && useradd -m -d /home/${USER} ${USER}
 
-FROM        base AS with_packages
+FROM base AS with_packages
 
-#           USER & ENTRYPOINT
+RUN    mkdir -p /usr/local/nltk_data
+RUN    chown -R ${USER}:${USER} /usr/local/nltk_data
 
-USER        cria
-ENV         USER=cria HOME=/home/cria
-WORKDIR     /home/cria
+# ENV CONFIGURATION
 
-#           PYTHON PACKAGES
+ENV USER="${USER}"
+ENV HOME="/home/${USER}"
+ENV PIP="${PYTHON} -m pip"
 
-COPY        requirements-1.txt ./
-COPY        requirements-2.txt ./
+# USER CONFIGURATION
 
-RUN         pip install -r requirements-1.txt
-RUN         pip install -r requirements-2.txt
+USER ${USER}
+WORKDIR /home/${USER}
 
-RUN         rm ./requirements-1.txt
-RUN         rm ./requirements-2.txt
+# INSTALL PYTHON DEPENDENCIES
 
-FROM        with_packages AS final
+COPY requirements.txt ./
+RUN ${PIP} install -r ./requirements.txt && rm ./requirements.txt
 
-#           PROJECT SOURCE CODE
+# With packages
 
-COPY        ./.env ./.env
-COPY        ./app ./app
-COPY        ./criaparse ./criaparse
+FROM with_packages AS final
 
-#           START SERVER
+# Install NLTK Deps
 
-COPY        --chown=cria:cria ./entrypoint.sh /entrypoint.sh
-RUN         chmod +x /entrypoint.sh
-ENTRYPOINT  ["/usr/bin/tini", "-g", "--"]
-CMD         ["/entrypoint.sh"]
+RUN ${PYTHON} -c "from unstructured.nlp.tokenize import download_nltk_packages; download_nltk_packages()" && \
+ ${PYTHON} -c "from unstructured.partition.model_init import initialize; initialize()"
+
+# PROJECT SOURCE CODE
+
+COPY ./app ./app
+COPY ./criaparse ./criaparse
+
+# START SERVER
+
+COPY --chown=${USER}:${USER} ./entrypoint.sh /entrypoint.sh
+
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/usr/bin/tini", "-g", "--"]
+CMD ["/entrypoint.sh", "${USER}"]

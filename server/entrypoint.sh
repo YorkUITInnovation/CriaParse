@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd /home/cria/
+cd "/home/$1/"
 
 python --version
 
