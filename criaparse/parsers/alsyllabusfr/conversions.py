@@ -7,7 +7,7 @@ import pandas as pd
 from bs4 import BeautifulSoup
 from docx import Document
 
-from criaparse.parser import Element, ElementType
+from criaparse.models import ElementType, Element
 
 
 def run_converter(docx: io.BytesIO) -> List[Element]:

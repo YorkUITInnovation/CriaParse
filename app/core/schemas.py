@@ -58,6 +58,36 @@ class CriadexCredentials(UnstructuredCredentials):
     pass
 
 
+class RedisCredentials(BaseModel):
+    """
+    Credentials for accessing the Redis Memcache
+
+    """
+
+    host: str
+    port: int
+    username: str | None
+    password: str | None
+
+    def __str__(self):
+
+        if self.username is None or self.password is None:
+            return f"redis://{self.host}:{self.port}"
+
+        return f"redis://{self.username}:{self.password}@{self.host}:{self.port}"
+
+
+class JobState(BaseModel):
+    """
+    The state of the job
+
+    """
+
+    job_id: str
+    status: str
+    message: str
+
+
 def form_metadata_converter(file_metadata: Optional[str] = Form(default=None)) -> Optional[dict]:
     try:
         return json.loads(file_metadata) if file_metadata else None

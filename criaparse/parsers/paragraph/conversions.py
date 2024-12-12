@@ -8,7 +8,7 @@ from typing import List
 # Import packages ------------------------------------------------------------------------------------------ #
 from docx import Document  # to import the syllabus (ocx file)
 
-from criaparse.parser import Element, ElementType
+from criaparse.models import ElementType, Element
 
 section_length = 325 # Rough number of words in each section
 # Functions -------------------------------------------------------------------------------------------------- #

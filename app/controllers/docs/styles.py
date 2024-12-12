@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import APIRouter
-from fastapi_restful.cbv import cbv
+from fastapi_utils.cbv import cbv
 from starlette.responses import Response
 
 from app.controllers.schemas import catch_exceptions, APIResponse

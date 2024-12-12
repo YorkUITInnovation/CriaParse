@@ -1,9 +1,9 @@
-from io import BytesIO
 from typing import List
 
 from fastapi import UploadFile
 
-from criaparse.parser import Parser, Element
+from criaparse.models import Element, ParserResponse
+from criaparse.parser import Parser
 from criaparse.parsers.paragraph.conversions import run_converter
 
 
@@ -11,6 +11,14 @@ class ParagraphParser(Parser):
     """
     Paragraph parser
     """
+
+    @classmethod
+    def step_count(cls) -> int:
+        return 1
+
+    @classmethod
+    def parser_name(cls) -> str:
+        return "PARAGRAPH"
 
     def accepted_mimetypes(self) -> List[str]:
         """
@@ -21,7 +29,7 @@ class ParagraphParser(Parser):
 
         return ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
 
-    async def _parse(self, file: UploadFile, **kwargs) -> List[Element]:
+    async def _parse(self, file: UploadFile, **kwargs) -> ParserResponse:
         """
         Use the unstructured API to parse files
 
@@ -34,4 +42,4 @@ class ParagraphParser(Parser):
             docx=self.to_buffer(file=file)
         )
 
-        return parsed_elements
+        return ParserResponse(elements=parsed_elements)

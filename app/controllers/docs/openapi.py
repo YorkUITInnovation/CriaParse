@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from fastapi.openapi.utils import get_openapi
-from fastapi_restful.cbv import cbv
+from fastapi_utils.cbv import cbv
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 

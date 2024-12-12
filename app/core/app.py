@@ -9,6 +9,7 @@ from typing import Any, List, AsyncContextManager
 
 from CriadexSDK import CriadexSDK
 from fastapi import FastAPI
+from redis.asyncio import Redis, from_url
 from starlette.datastructures import State
 from starlette.middleware.cors import CORSMiddleware
 
@@ -59,9 +60,11 @@ class CriaParseAPI(FastAPI):
 
         await criadex_sdk.authenticate(api_key=config.CRIADEX_CREDENTIALS.api_key)
 
+        redis_pool: Redis = await from_url(str(config.REDIS_CREDENTIALS))
+
         # Make more stuff
         _app: CriaParseAPI = CriaParseAPI(
-            criaparse=CriaParse(criadex_sdk),
+            criaparse=CriaParse(criadex_sdk, redis_pool),
             criadex=criadex_sdk,
             docs_url=None,
             openapi_url=None,

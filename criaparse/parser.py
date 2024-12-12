@@ -1,53 +1,13 @@
-import dataclasses
-import enum
 import io
-import uuid
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from io import BytesIO
-from tempfile import SpooledTemporaryFile
-from typing import List, BinaryIO
+from typing import List, BinaryIO, Awaitable
 
+from CriadexSDK.routers.models.azure import ModelAboutRoute
 from fastapi import UploadFile
 
-
-class ElementType(enum.Enum):
-    """
-    The type of element
-
-    """
-
-    FIGURE_CAPTION = "FigureCaption"
-    NARRATIVE_TEXT = "NarrativeText"
-    LIST_ITEM = "ListItem"
-    TITLE = "Title"
-    ADDRESS = "Address"
-    TABLE = "Table"
-    PAGE_BREAK = "PageBreak"
-    HEADER = "Header"
-    FOOTER = "Footer"
-    UNCATEGORIZED_TEXT = "UncategorizedText"
-    IMAGE = "Image"
-    FORMULA = "Formula"
-
-    # Custom
-    UNKNOWN = "Unknown"
-    TABLE_ENTRY = "TableEntry"
-
-    @classmethod
-    def of(cls, value: str) -> "ElementType":
-        try:
-            return cls(value)
-        except ValueError:
-            return cls.UNKNOWN
-
-
-@dataclass()
-class Element:
-    type: ElementType
-    text: str
-    metadata: dict = dataclasses.field(default_factory=dict)
-    element_id: str = dataclasses.field(default_factory=lambda: str(uuid.uuid4()))
+from criaparse.job import Job
+from criaparse.models import ParserResponse
 
 
 class FileUnsupportedParseError(RuntimeError):
@@ -86,7 +46,7 @@ class Parser(ABC):
         return file.content_type in self.accepted_mimetypes()
 
     @abstractmethod
-    async def _parse(self, file: UploadFile, **kwargs) -> List[Element]:
+    async def _parse(self, file: UploadFile, job: "Job", **kwargs) -> ParserResponse:
         """
         Parse a document with the parser
 
@@ -104,7 +64,12 @@ class Parser(ABC):
 
         return io
 
-    async def parse(self, file: UploadFile, **kwargs) -> List[Element]:
+    async def parse(
+            self,
+            file: UploadFile,
+            job: Job,
+            **kwargs
+    ) -> ParserResponse:
         """
         Parse a document with the parser
 
@@ -117,4 +82,28 @@ class Parser(ABC):
                 f"The file content type {file.content_type} is not supported by {type(self)}"
             )
 
-        return await self._parse(file=file, **kwargs)
+        return await self._parse(file=file, job=job, **kwargs)
+
+    @classmethod
+    @abstractmethod
+    def step_count(cls) -> int:
+        """
+        Get the number of steps in the parser
+
+        :return: The number of steps
+
+        """
+
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def parser_name(cls) -> str:
+        """
+        Get the name of the parser
+
+        :return: The parser name
+
+        """
+
+        raise NotImplementedError

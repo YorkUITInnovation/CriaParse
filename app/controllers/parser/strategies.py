@@ -1,7 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter
-from fastapi_restful.cbv import cbv
+from fastapi_utils.cbv import cbv
 from starlette.requests import Request
 
 from app.controllers.schemas import catch_exceptions, APIResponse
@@ -31,7 +31,6 @@ class ParserStrategiesRoute(CriaRoute):
             self,
             request: Request,
     ) -> ResponseModel:
-
         # Success!
         return self.ResponseModel(
             code="SUCCESS",

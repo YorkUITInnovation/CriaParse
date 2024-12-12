@@ -3,9 +3,9 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-from .schemas import AppMode, check_env_path, UnstructuredCredentials, CriadexCredentials
+from .schemas import AppMode, check_env_path, CriadexCredentials, RedisCredentials
 
-ENV_PATH: str = os.environ.get('ENV_PATH', "./.env")
+ENV_PATH: str = os.environ.get('ENV_PATH', "../.env")
 ENV_LOADED: bool = load_dotenv(dotenv_path=check_env_path(ENV_PATH))
 
 APP_MODE: AppMode = AppMode[os.environ.get('APP_API_MODE', AppMode.TESTING.name)]
@@ -35,6 +35,14 @@ SWAGGER_DESCRIPTION = f"""
 <img width="40px" src="{SWAGGER_FAVICON}"/><br/><br/>
 An asynchronous REST API for RAG data ingestion.
 """
+
+# Redis Config
+REDIS_CREDENTIALS: RedisCredentials = RedisCredentials(
+    host=os.environ.get("REDIS_HOST"),
+    port=os.environ.get("REDIS_PORT"),
+    username=os.environ.get("REDIS_USERNAME"),
+    password=os.environ.get("REDIS_PASSWORD"),
+)
 
 CRIADEX_CREDENTIALS: CriadexCredentials = CriadexCredentials(
     api_base=os.environ["CRIADEX_API_BASE"],

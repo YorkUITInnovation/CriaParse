@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 
 from fastapi import APIRouter, UploadFile, File
 from fastapi_utils.cbv import cbv
@@ -7,27 +7,25 @@ from starlette.requests import Request
 from app.controllers.schemas import catch_exceptions, APIResponse, exception_response
 from app.core.route import CriaRoute
 from criaparse.client import ParseStrategy
-from criaparse.models import Element, ParserResponse, Asset
+from criaparse.job import JobModel, Job
 from criaparse.parsers.generic.errors import ParseModelMissingError
 
 view = APIRouter()
 
 
-class ParserParseResponse(APIResponse):
-    nodes: Optional[List[Element]] = None
-    assets: Optional[List[Asset]] = None
+class ParserQueueResponse(APIResponse):
+    job: Optional[JobModel] = None
 
 
 @cbv(view)
 class ParserParseRoute(CriaRoute):
-    ResponseModel = ParserParseResponse
+    ResponseModel = ParserQueueResponse
 
     @view.post(
-        path="/parser/parse",
-        name="Parse a file",
-        summary="Parse a file",
-        description="Parse a file",
-        deprecated=False
+        path="/parser/queue",
+        name="Queue a file parse job",
+        summary="Queue a file parse job",
+        description="Queue a file parse job",
     )
     @catch_exceptions(
         ResponseModel
@@ -48,7 +46,7 @@ class ParserParseRoute(CriaRoute):
             embedding_model_id: Optional[int] = None,
             file: UploadFile = File(...)
     ) -> ResponseModel:
-        job_response: ParserResponse = await request.app.criaparse.parse(
+        parse_response: Job = await request.app.criaparse.queue_parse(
             file=file,
             strategy=strategy,
             llm_model_id=llm_model_id,
@@ -59,9 +57,8 @@ class ParserParseRoute(CriaRoute):
         return self.ResponseModel(
             code="SUCCESS",
             status=200,
-            message="Successfully parsed the document.",
-            nodes=job_response.elements,
-            assets=job_response.assets
+            message="Successfully queued the parse job.",
+            job=parse_response.model
         )
 
 
