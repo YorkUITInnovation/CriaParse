@@ -1,4 +1,4 @@
-python-multipart>=0.0.6
+python-multipart>=0.0.18
 fastapi>=0.115.4
 uvicorn==0.24.0.post1
 python-dotenv==1.0.0
@@ -12,7 +12,7 @@ pyarrow==16.0.0
 pydantic>=2.7.1
 redis==5.2.0
 
-# Build Nov 7.1
+# Build Nov 7.2
 SemanticDocumentParser @ git+https://github.com/YorkUITInnovation/SemanticDocumentParser.git
 
 # Don't freak out, the token is read-only on CriadexSDK
