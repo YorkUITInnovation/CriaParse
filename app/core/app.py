@@ -153,7 +153,7 @@ class CriaParseAPI(FastAPI):
 
         # Set the SDK and Redis pool
         criaparse_api.criadex = criadex_sdk
-        criaparse_api.criaparse = CriaParse(criadex=criadex_sdk, redis=redis_pool)
+        criaparse_api.criaparse = CriaParse(criadex=criadex_sdk, redis=redis_pool, workers=config.PARSE_WORKERS)
         criaparse_api.criaparse.start()
 
         # Shutdown is after yield

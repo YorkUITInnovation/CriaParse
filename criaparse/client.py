@@ -16,7 +16,7 @@ class CriaParse:
             self,
             criadex: CriadexSDK,
             redis: Redis,
-            workers: int = 3
+            workers: int
     ):
         """Initialize CriaParse"""
 

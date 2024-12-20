@@ -48,3 +48,5 @@ CRIADEX_CREDENTIALS: CriadexCredentials = CriadexCredentials(
     api_base=os.environ["CRIADEX_API_BASE"],
     api_key=os.environ["CRIADEX_API_KEY"]
 )
+
+PARSE_WORKERS = int(os.environ.get('PARSE_WORKERS', "4"))
