@@ -1,8 +1,6 @@
 from typing import List
 
-from fastapi import UploadFile
-
-from criaparse.models import Element, ParserResponse
+from criaparse.models import Element, ParserResponse, ParserFile
 from criaparse.parser import Parser
 from criaparse.parsers.paragraph.conversions import run_converter
 
@@ -13,7 +11,7 @@ class ParagraphParser(Parser):
     """
 
     @classmethod
-    def step_count(cls) -> int:
+    def step_count(cls, **kwargs) -> int:
         return 1
 
     @classmethod
@@ -29,7 +27,7 @@ class ParagraphParser(Parser):
 
         return ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
 
-    async def _parse(self, file: UploadFile, **kwargs) -> ParserResponse:
+    async def _parse(self, file: ParserFile, **kwargs) -> ParserResponse:
         """
         Use the unstructured API to parse files
 
@@ -39,7 +37,7 @@ class ParagraphParser(Parser):
         """
 
         parsed_elements: List[Element] = run_converter(
-            docx=self.to_buffer(file=file)
+            docx=file.buffer
         )
 
         return ParserResponse(elements=parsed_elements)

@@ -12,7 +12,7 @@ from pydantic import BaseModel, PrivateAttr, Field
 from redis import Redis
 from redis.asyncio import Redis
 
-from criaparse.models import ParserResponse
+from criaparse.models import ParserResponse, ParserFile
 
 if TYPE_CHECKING:
     from criaparse.parser import Parser
@@ -23,6 +23,7 @@ class Job:
 
     def __init__(
             self,
+            job_data: JobData,
             parser: "Parser",
             redis: Redis
     ):
@@ -32,16 +33,7 @@ class Job:
         self._future: asyncio.Task | None = None
 
         # The Redis data model
-        self._data: JobData = JobData(
-            # Public attrs
-            step=None,
-            steps=parser.step_count(),
-            step_name=None,
-            strategy=parser.name(),
-
-            # Private attrs
-            _redis=redis
-        )
+        self._data: JobData = job_data
 
     @classmethod
     async def create(
@@ -64,8 +56,19 @@ class Job:
 
         """
 
+        job_data: JobData = JobData(
+            # Public attrs
+            step=None,
+            steps=parser.step_count(**kwargs),  # Number of steps may depend on kwarg config
+            step_name=None,
+            strategy=parser.name(),
+
+            # Private attrs
+            _redis=redis
+        )
+
         # Create Job
-        job: "Job" = cls(parser=parser, redis=redis)
+        job: "Job" = cls(parser=parser, redis=redis, job_data=job_data)
 
         # Get the model information dynamically
         if kwargs['llm_model_id'] and kwargs['embedding_model_id']:
@@ -80,9 +83,11 @@ class Job:
             kwargs['embedding_model_info'] = embedding_model_info
 
         # Start the job & return the Job instance
+        parser_file = await ParserFile.from_upload_file(upload_file=file)
+
         return await job.start(
             parser.parse(
-                file=file,
+                file=parser_file,
                 job=job,
                 **kwargs
             )
@@ -120,7 +125,7 @@ class Job:
         """
 
         # Update the pertinent data
-        self._data.step_timings[step_name] = time_taken
+        self._data.step_timings[step_number] = JobDataTiming(step_name=step_name, time_taken=time_taken)
         self._data.step = step_number
         self._data.step_name = step_name
 
@@ -141,6 +146,16 @@ class Job:
         self._data.response = response
 
         await self._data.upsert()
+
+
+class JobDataTiming(BaseModel):
+    """
+    Timing data for a job
+
+    """
+
+    step_name: str
+    time_taken: float
 
 
 class JobData(BaseModel):
@@ -168,7 +183,7 @@ class JobData(BaseModel):
     strategy: str
 
     # Timings Map<StepName, Time>
-    step_timings: Dict[str, float] = {}
+    step_timings: Dict[int, JobDataTiming] = {}
 
     # Response
     response: ParserResponse | None = None

@@ -1,15 +1,19 @@
+import functools
+import io
 from typing import List
 
 from CriadexSDK.routers.models.azure import ModelAboutRoute
 from SemanticDocumentParser import SemanticDocumentParser
 from SemanticDocumentParser.llama_extensions.node_parser import AsyncSemanticSplitterNodeParser
+from SemanticDocumentParser.utils import with_timings_sync
 from fastapi import UploadFile
 from llama_index.embeddings.azure_openai import AzureOpenAIEmbedding
 from llama_index.multi_modal_llms.azure_openai import AzureOpenAIMultiModal
 
 from criaparse.daemon.job import Job
-from criaparse.models import ElementType, Element, ParserResponse, Asset
+from criaparse.models import ElementType, Element, ParserResponse, Asset, FileUnsupportedParseError, ParserFile
 from criaparse.parser import Parser
+from criaparse.parsers import alsyllabus
 from criaparse.parsers.generic.errors import ParseModelMissingError
 
 semantic_step_map: dict[str, int] = {
@@ -21,8 +25,10 @@ semantic_step_map: dict[str, int] = {
     'Table Parsing 2/2': 6,
     'Image Captioning': 7,
     'Window Combination': 8,
-    'Remove Small Nodes': 9,
+    'Remove Small Nodes': 9
 }
+
+DOCX_FILETYPE: str = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
 class GenericParser(Parser):
@@ -31,8 +37,13 @@ class GenericParser(Parser):
     """
 
     @classmethod
-    def step_count(cls) -> int:
-        return 6
+    def step_count(cls, **kwargs) -> int:
+        extra_steps: int = 0
+
+        if kwargs.get('al_extension') is True:
+            extra_steps += 1
+
+        return len(semantic_step_map) + extra_steps
 
     @classmethod
     def name(cls) -> str:
@@ -58,7 +69,7 @@ class GenericParser(Parser):
 
     async def _parse(
             self,
-            file: UploadFile,
+            file: ParserFile,
             job: Job,
             **kwargs
     ) -> ParserResponse:
@@ -69,6 +80,11 @@ class GenericParser(Parser):
         :return:
 
         """
+
+        if kwargs.get('al_extension') is True and file.content_type != DOCX_FILETYPE:
+            raise FileUnsupportedParseError(
+                f"The {self.name()} parser's 'Al Extension' module requires a DOCX file, but you uploaded a {file.content_type.split('/')[-1].upper()}."
+            )
 
         llm_model_info: ModelAboutRoute.Response = kwargs['llm_model_info']
         embedding_model_info: ModelAboutRoute.Response = kwargs['embedding_model_info']
@@ -105,20 +121,46 @@ class GenericParser(Parser):
             node_parser=_node_parser,
         )
 
+        # Function to update the job after each step
         async def on_step_finished(step_name: str, parse_time: float) -> None:
             step_num = semantic_step_map[step_name]
             await job.set_step_finished(step_name=step_name, step_number=step_num, time_taken=parse_time)
 
+        # Parse using the SemanticDocumentParser
         parsed_elements, _ = await parser.aparse(
-            document=self.to_buffer(file),
+            document=file.buffer,
             document_filename=file.filename,
             on_step_finished=on_step_finished
         )
 
+        # If al is enabled, parse using that & extend the elements with the extra step
+        if kwargs.get('al_extension') is True:
+            timings, response = with_timings_sync(fn=functools.partial(self.al_extension, file_buffer=file.buffer))
+            parsed_elements.extend(response)
+            await job.set_step_finished(step_name='Al Extension', step_number=len(semantic_step_map) + 1, time_taken=timings)
+
+        output_elements, output_assets = self.parse_parser_outputs(parsed_elements)
+        return ParserResponse(elements=output_elements, assets=output_assets)
+
+    @classmethod
+    def al_extension(cls, file_buffer: io.BytesIO) -> List[dict]:
+        """Execute the Al extension to extend the generic parser to handle syllabi matching the Al Syllabus template format"""
+        return alsyllabus.convert_file_partial(file_buffer)
+
+    @classmethod
+    def parse_parser_outputs(cls, elements: List[dict]) -> tuple[List[Element], List[Asset]]:
+        """
+        Parse the elements & separate assets out for Criadex
+
+        :param elements: Elements to output as serialized elements
+        :return: Serialized representation of elements split from assets
+
+        """
+
         output_elements = []
         output_assets = []
 
-        for element in parsed_elements:
+        for element in elements:
 
             if element['type'] == ElementType.IMAGE.value:
                 asset: Asset = Asset(
@@ -140,4 +182,4 @@ class GenericParser(Parser):
                 )
             )
 
-        return ParserResponse(elements=output_elements, assets=output_assets)
+        return output_elements, output_assets

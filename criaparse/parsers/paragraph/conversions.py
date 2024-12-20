@@ -14,7 +14,6 @@ section_length = 325 # Rough number of words in each section
 # Functions -------------------------------------------------------------------------------------------------- #
 def run_converter(docx: io.BytesIO) -> List[Element]:
 
-    print(type(docx))
     doc = Document(docx)
 
     def split_document(doc):

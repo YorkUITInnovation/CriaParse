@@ -2,14 +2,57 @@ from __future__ import annotations
 
 import enum
 import importlib
+import io
 import typing
 import uuid
+from io import BytesIO
 from typing import List, Generator
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
+from starlette.datastructures import UploadFile
 
 if typing.TYPE_CHECKING:
     from criaparse.parser import Parser
+
+
+class ParserFile(BaseModel):
+    """
+    A file to be parsed
+
+    """
+
+    filename: str
+    content_type: str
+    filedata: bytes
+
+    _buffer: io.BytesIO | None = PrivateAttr()
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._buffer = None
+
+    @property
+    def buffer(self) -> io.BytesIO:
+        """Convert the filedata to a BytesIO buffer"""
+
+        if self._buffer:
+            self._buffer.seek(0)
+            return self._buffer
+
+        buffer = BytesIO()
+        buffer.write(self.filedata)
+        buffer.seek(0)
+
+        self._buffer = buffer
+        return self._buffer
+
+    @classmethod
+    async def from_upload_file(cls, upload_file: UploadFile) -> "ParserFile":
+        return cls(
+            filename=upload_file.filename,
+            content_type=upload_file.content_type,
+            filedata=await upload_file.read()
+        )
 
 
 class ElementType(enum.Enum):

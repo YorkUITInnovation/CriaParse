@@ -6,7 +6,7 @@ from starlette.requests import Request
 
 from app.controllers.schemas import catch_exceptions, APIResponse, exception_response
 from app.core.route import CriaRoute
-from criaparse.models import Element, ParserResponse, Asset, ParserStrategy
+from criaparse.models import Element, ParserResponse, Asset, ParserStrategy, FileUnsupportedParseError
 from criaparse.parsers.generic.errors import ParseModelMissingError
 
 view = APIRouter()
@@ -46,15 +46,25 @@ class ParserParseRoute(CriaRoute):
             strategy: ParserStrategy,
             llm_model_id: Optional[int] = None,
             embedding_model_id: Optional[int] = None,
+            al_extension: Optional[bool] = False,
             file: UploadFile = File(...)
     ) -> ResponseModel:
-        # Get the job response
-        job_response: ParserResponse = await request.app.criaparse.parse_sync(
-            file=file,
-            strategy=strategy,
-            llm_model_id=llm_model_id,
-            embedding_model_id=embedding_model_id
-        )
+
+        try:
+            # Get the job response
+            job_response: ParserResponse = await request.app.criaparse.parse_sync(
+                file=file,
+                strategy=strategy,
+                llm_model_id=llm_model_id,
+                embedding_model_id=embedding_model_id,
+                al_extension=al_extension
+            )
+        except FileUnsupportedParseError as ex:
+            return self.ResponseModel(
+                code="INVALID_PAYLOAD",
+                status=400,
+                message=str(ex)
+            )
 
         # Success!
         return self.ResponseModel(

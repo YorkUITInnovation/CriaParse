@@ -1,12 +1,8 @@
-import io
 from abc import ABC, abstractmethod
-from io import BytesIO
-from typing import List, BinaryIO
-
-from fastapi import UploadFile
+from typing import List
 
 from criaparse.daemon.job import Job
-from criaparse.models import ParserResponse, FileUnsupportedParseError
+from criaparse.models import ParserResponse, FileUnsupportedParseError, ParserFile
 
 
 class Parser(ABC):
@@ -26,7 +22,7 @@ class Parser(ABC):
 
         raise NotImplementedError
 
-    def supports_file(self, file: UploadFile) -> bool:
+    def supports_file(self, file: ParserFile) -> bool:
         """
         Whether the parser supports a specific file
 
@@ -38,7 +34,7 @@ class Parser(ABC):
         return file.content_type in self.accepted_mimetypes()
 
     @abstractmethod
-    async def _parse(self, file: UploadFile, job: "Job", **kwargs) -> ParserResponse:
+    async def _parse(self, file: ParserFile, job: "Job", **kwargs) -> ParserResponse:
         """
         Parse a document with the parser
 
@@ -48,20 +44,9 @@ class Parser(ABC):
 
         raise NotImplementedError
 
-    @classmethod
-    def to_buffer(cls, file: UploadFile) -> io.BytesIO:
-        """Convert an UploadFile to a BytesIO buffer"""
-
-        file: BinaryIO = file.file
-        file.seek(0)
-        buffer: BytesIO = BytesIO()
-        buffer.write(file.read())
-
-        return buffer
-
     async def parse(
             self,
-            file: UploadFile,
+            file: ParserFile,
             job: Job,
             **kwargs
     ) -> "ParserResponse":
@@ -77,11 +62,15 @@ class Parser(ABC):
                 f"The file content type {file.content_type} is not supported by {type(self)}"
             )
 
-        return await self._parse(file=file, job=job, **kwargs)
+        return await self._parse(
+            file=file,
+            job=job,
+            **kwargs
+        )
 
     @classmethod
     @abstractmethod
-    def step_count(cls) -> int:
+    def step_count(cls, **kwargs) -> int:
         """
         Get the number of steps in the parser
 

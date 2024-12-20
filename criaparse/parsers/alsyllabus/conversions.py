@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from docx import Document
 from docx.text.paragraph import Paragraph
 
-from .al_types import AlNode
+from criaparse.parsers.alsyllabus.al_types import AlNode
 
 
 def find_h_level(docx_file: Document) -> List[str]:
@@ -110,8 +110,8 @@ def convert_doc_to_nodes(
 
     # Add the course title, rubric and number, which are not in Course Information, but in the title
     if "Course Information" in nodes_text[0]:  # The following code does not apply with Questions.docx
-        nodes_text[0] = nodes_text[0] + "The course rubric and number is " + docx_file.paragraphs[0].text.strip() + ".\n"
-        nodes_text[0] = nodes_text[0] + "The course title is " + docx_file.paragraphs[1].text.strip() + "."
+        nodes_text[0] += "The course rubric and number is " + docx_file.paragraphs[0].text.strip() + ".\n"
+        nodes_text[0] += "The course title is " + docx_file.paragraphs[1].text.strip() + "."
 
     return nodes_text
 
@@ -251,7 +251,7 @@ def render_tables_add_to_nodes_text(table_titles, nodes_text, doc_table_df):
                 temp_text += (
                         temp_df.iloc[j, 0] + " is the course's " + temp_df.iloc[j, 1] + " and has the following email address: " +
                         temp_df.iloc[j, 2] + " and has the following office hours (time you can meet or appointment time): " +
-                        temp_df.iloc[j, 3] + " and has the following office address or location (where you can meet with your professor or instructor or teacher or TA): " + \
+                        temp_df.iloc[j, 3] + " and has the following office address or location (where you can meet with your professor or instructor or teacher or TA): " +
                         temp_df.iloc[j, 4] + ".\n "
                 )
 
@@ -512,11 +512,12 @@ def include_hyperlink(paragraph: Paragraph) -> Tuple[List[str], List[str]]:
     return hyperlink_text, hyperlink_url
 
 
-def convert_to_dict(sorted_nodes_text) -> List[AlNode]:
+def convert_to_dict(sorted_nodes_text, include_ext_metadata_note: bool = False) -> List[AlNode]:
     """
     Converts the sorted nodes text to a list of AlNode dictionaries.
 
     :param sorted_nodes_text: The sorted nodes text
+    :param include_ext_metadata_note: Whether to include the AlNote
     :return: List of AlNode dictionaries
 
     """
@@ -524,14 +525,17 @@ def convert_to_dict(sorted_nodes_text) -> List[AlNode]:
     nodes: List[AlNode] = []
 
     for node_number, text in enumerate(sorted_nodes_text):
+        node_metadata = {}
+
+        if include_ext_metadata_note:
+            node_metadata["al_ext_note"] = "Al Parser Extension Node"
+
         nodes.append(
             {
                 "node_number": node_number,
                 "type": "NarrativeText",
                 "text": text,
-                "metadata": {
-                    "languages": ["eng"],
-                }
+                "metadata": node_metadata
             }
         )
 
@@ -571,7 +575,76 @@ def convert_file(
     return convert_to_dict(sorted_nodes_text)
 
 
+def convert_file_partial__render_course_information(docx_file: Document, sections: list[str]) -> List[str]:
+    """
+    An improved variant of 'convert_doc_to_nodes' that extracts JUST the course information.
+    This was originally taken from the 'convert_doc_to_nodes' function, but this is better for the LLM to understand.
+
+    """
+
+    # First section must be "Course Information"
+    if sections[0] != "Course Information":
+        return []
+
+    scrape_text: bool = False
+    nodes_text: list[str] = ["*Course Information*\n"]
+
+    for idx, paragraph in enumerate(docx_file.paragraphs):
+
+        # Start when we get to the first section
+        if sections[0] in paragraph.text:
+            scrape_text = True
+            continue
+
+        # Stop when we get to the next section
+        if sections[1] in paragraph.text:
+            break
+
+        if scrape_text:
+            text: str = paragraph.text.strip().replace("\t", " ")
+            if not text:
+                continue
+            nodes_text[0] += text + "\n"
+            nodes_text.append(text)
+
+    # Add the course rubric and number, and the course title which are not in Course Information, but in the title
+    nodes_text[0] += "The course rubric and number is " + docx_file.paragraphs[0].text.strip() + ".\n"
+    nodes_text[0] += "The course title is " + docx_file.paragraphs[1].text.strip() + "."
+
+    # Strip the trailing newline & return
+    nodes_text[0].strip()
+    return nodes_text
+
+
+# Parses only the Syllabus-related elements
+# This is used as an extension on TOP of the generic parser.
+# In that case, data parsed here will be duplicate by the generic parser, so be sure that's something you want when adding new elements here.
+def convert_file_partial(file_buffer: io.BytesIO) -> List[dict]:
+    # Parse as docx Object
+    file_buffer.seek(0)
+    docx_file: Document = Document(file_buffer)
+    sections: list[str] = find_h_level(docx_file)
+
+    # If no sections are detected, return an empty list
+    if len(sections) == 0:
+        return []
+
+    # Parse as HTML text
+    file_buffer.seek(0)
+    html_text: str = mammoth.convert_to_html(file_buffer).value
+
+    # Initialize an empty nodes_text array
+    nodes_text: list[str] = convert_file_partial__render_course_information(docx_file, sections)
+
+    # Parse the table elements
+    doc_tables_df, table_titles = read_tables(html_text, sections)
+    render_tables_add_to_nodes_text(table_titles, nodes_text, doc_tables_df)
+    sorted_nodes_text: List[Any] = clean_up(nodes_text)
+
+    return convert_to_dict(sorted_nodes_text, include_ext_metadata_note=True)
+
+
 if __name__ == '__main__':
-    buffer: io.BytesIO = io.BytesIO(open('../resources/Syllabus HUMA 1740 FW (2024-2025).docx', 'rb').read())
-    data = convert_file(buffer)
+    buffer: io.BytesIO = io.BytesIO(open('./Syllabus HUMA 1740 FW (2024-2025).docx', 'rb').read())
+    data = convert_file_partial(buffer)
     print(data)

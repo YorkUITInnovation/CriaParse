@@ -1,9 +1,7 @@
 from typing import List
 
-from fastapi import UploadFile
-
+from criaparse.models import ElementType, Element, ParserResponse, ParserFile
 from criaparse.parser import Parser
-from criaparse.models import ElementType, Element, ParserResponse
 from criaparse.parsers.alsyllabus.al_types import AlNode
 from criaparse.parsers.alsyllabus.conversions import convert_file
 
@@ -14,7 +12,7 @@ class AlSyllabusParser(Parser):
     """
 
     @classmethod
-    def step_count(cls) -> int:
+    def step_count(cls, **kwargs) -> int:
         return 1
 
     @classmethod
@@ -30,7 +28,7 @@ class AlSyllabusParser(Parser):
 
         return ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
 
-    async def _parse(self, file: UploadFile, **kwargs) -> ParserResponse:
+    async def _parse(self, file: ParserFile, **kwargs) -> ParserResponse:
         """
         Use the unstructured API to parse files
 
@@ -40,7 +38,7 @@ class AlSyllabusParser(Parser):
         """
 
         al_nodes: List[AlNode] = convert_file(
-            file_bytes=self.to_buffer(file=file)
+            file_bytes=file.buffer
         )
 
         elements: List[Element] = []
@@ -54,3 +52,6 @@ class AlSyllabusParser(Parser):
             )
 
         return ParserResponse(elements=elements)
+
+
+__all__ = ["AlSyllabusParser"]
