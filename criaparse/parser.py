@@ -1,20 +1,12 @@
 import io
 from abc import ABC, abstractmethod
 from io import BytesIO
-from typing import List, BinaryIO, Awaitable
+from typing import List, BinaryIO
 
-from CriadexSDK.routers.models.azure import ModelAboutRoute
 from fastapi import UploadFile
 
-from criaparse.job import Job
-from criaparse.models import ParserResponse
-
-
-class FileUnsupportedParseError(RuntimeError):
-    """
-    Thrown when someone tries to parse a file not supported by a parser
-
-    """
+from criaparse.daemon.job import Job
+from criaparse.models import ParserResponse, FileUnsupportedParseError
 
 
 class Parser(ABC):
@@ -56,20 +48,23 @@ class Parser(ABC):
 
         raise NotImplementedError
 
-    def to_buffer(self, file: UploadFile) -> io.BytesIO:
+    @classmethod
+    def to_buffer(cls, file: UploadFile) -> io.BytesIO:
+        """Convert an UploadFile to a BytesIO buffer"""
+
         file: BinaryIO = file.file
         file.seek(0)
-        io: BytesIO = BytesIO()
-        io.write(file.read())
+        buffer: BytesIO = BytesIO()
+        buffer.write(file.read())
 
-        return io
+        return buffer
 
     async def parse(
             self,
             file: UploadFile,
             job: Job,
             **kwargs
-    ) -> ParserResponse:
+    ) -> "ParserResponse":
         """
         Parse a document with the parser
 
@@ -98,7 +93,7 @@ class Parser(ABC):
 
     @classmethod
     @abstractmethod
-    def parser_name(cls) -> str:
+    def name(cls) -> str:
         """
         Get the name of the parser
 

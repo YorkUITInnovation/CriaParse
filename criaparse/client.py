@@ -1,158 +1,93 @@
-import asyncio
-import logging
-import traceback
-from typing import Dict, List, Type, Literal
+from typing import List
 
 from CriadexSDK import CriadexSDK
 from fastapi import UploadFile
 from redis.asyncio import Redis
 
-from criaparse.job import Job
-from criaparse.models import Element, ParserResponse
-from criaparse.parser import Parser
-from criaparse.parsers.alsyllabus.alsyllabus import AlSyllabusParser
-from criaparse.parsers.alsyllabusfr.alsyllabusfr import AlSyllabusParserFr
-from criaparse.parsers.generic.errors import JobNotFoundError
-from criaparse.parsers.generic.generic import GenericParser
-from criaparse.parsers.paragraph.paragraph import ParagraphParser
-
-
-class UnsupportedParser(RuntimeError):
-    """
-    Parser not found or enabled on the server-side
-
-    """
-
-
-ParseStrategy: Type = Literal["GENERIC", "ALSYLLABUS", "PARAGRAPH", "ALSYLLABUSFR"]
+from criaparse.daemon.daemon import Daemon
+from criaparse.daemon.job import Job, JobData
+from criaparse.models import ParserResponse, ParserStrategy
 
 
 class CriaParse:
-    """
-    Wrapper for interacting with parsing strategies from FastAPI interface
-
-    """
+    """Manager for handling parsing jobs"""
 
     def __init__(
             self,
             criadex: CriadexSDK,
             redis: Redis,
+            workers: int = 3
     ):
-        """
-        Initialize the parsers
-
-        :param criadex: Needed to authenticate
-        :param redis: Pool to store job results
-
-        """
+        """Initialize CriaParse"""
 
         self._criadex: CriadexSDK = criadex
-
-        self.parsers: Dict[ParseStrategy, Parser] = {
-            "GENERIC": GenericParser(),
-            "ALSYLLABUS": AlSyllabusParser(),
-            "ALSYLLABUSFR": AlSyllabusParserFr(),
-            "PARAGRAPH": ParagraphParser()
-        }
-
+        self._parsers = {strategy: strategy.create() for strategy in ParserStrategy.iterator()}
         self._redis: Redis = redis
-        self._jobs: Dict[str, Job] = {}
-        self._loop_task: asyncio.Task = asyncio.create_task(self.handle_jobs())
+        self._daemon = Daemon(workers=workers)
 
-    async def handle_jobs(self) -> None:
+    def start(self) -> None:
+        """Start the Daemon responsible for handling asynchronous parsing jobs."""
+        self._daemon.start()
 
-        while True:
-
-            for job_id, job in self._jobs.items():
-                if job.expired:
-                    del self._jobs[job_id]
-
-            await asyncio.sleep(1)
+    async def close(self):
+        """Stop the Daemon responsible for handling asynchronous parsing jobs & cancel all jobs."""
+        await self._daemon.stop()
 
     @property
     def parsing_strategies(self) -> List[str]:
-        """
-        List the available parsing strategies
-        :return: The list of available parsing strategies
+        """List the available parser strategies"""
+        return list(self._parsers.keys())
 
-        """
-
-        return list(self.parsers.keys())
-
-    async def parse(
+    async def parse_sync(
             self,
             file: UploadFile,
-            strategy: ParseStrategy = "GENERIC",
+            strategy: ParserStrategy,
             **kwargs
     ) -> ParserResponse:
-        """
-        Parse a document using the CriaParse suite
+        """(NOT RECOMMENDED) Synchronously parse a file using a specific strategy. This will lead to HTTP timeouts on large documents when hooked into FastAPI."""
 
-        :param file: The file to parse
-        :param strategy: The parsing strategy to use
-        :return: The parsed file
-
-        """
-
-        # Parse the file
-        job = await self.queue_parse(file=file, strategy=strategy, **kwargs)
-        await job.future
-
-        # Grab results immediately
-        await asyncio.sleep(1)
-
-        # Get result to clear
-        return await job.get_result()
-
-    async def queue_parse(
-            self,
-            file: UploadFile,
-            strategy: ParseStrategy = "GENERIC",
-            **kwargs
-    ) -> Job:
-        """
-        Queue a parse job
-
-        :param file: The file to parse
-        :param strategy: The parsing strategy to use
-        :param kwargs: The parsing arguments
-        :return: The job ID
-
-        """
-
-        # Retrieve the parser
-        try:
-            parser: Parser = self.parsers[strategy]
-        except KeyError as ex:
-            raise UnsupportedParser("Parser does not exist or is not enabled!") from ex
-        except:
-            logging.error(traceback.format_exc())
-            raise
-
-        # Create the job
         job: Job = await Job.create(
-            parser=parser,
-            file=file,
+            parser=self._parsers[strategy],
             criadex=self._criadex,
             redis=self._redis,
+            file=file,
             **kwargs
         )
 
-        # Store the job
-        self._jobs[job.model.job_id] = job
-        return job
+        # Wait for response without using a worker
+        return await job.future
 
-    def get_job(self, job_id: str) -> Job:
-        """
-        Get a job by ID
+    async def queue(
+            self,
+            file: UploadFile,
+            strategy: ParserStrategy,
+            **kwargs
+    ) -> Job:
+        """Queue a job to be processed by the daemon"""
 
-        :param job_id: The job ID
-        :raises JobNotFoundError: If the job is not found
-        :return: The job
+        job: Job = await Job.create(
+            parser=self._parsers[strategy],
+            criadex=self._criadex,
+            redis=self._redis,
+            file=file,
+            **kwargs
+        )
 
-        """
+        return await self._daemon.queue(job=job)
 
-        try:
-            return self._jobs[job_id]
-        except KeyError:
-            raise JobNotFoundError(f"Job with ID {job_id} not found!") from None
+    async def poll(self, job_id: str) -> JobData | None:
+        """Poll the status of a job"""
+
+        # Get the key
+        job_data: JobData | None = await JobData.from_redis(job_id=job_id, redis=self._redis)
+
+        # If no response
+        if job_data is None:
+            return None
+
+        # If it's finished, delete the key as we are retrieving the parse data
+        if job_data.finished:
+            await job_data.delete()
+
+        # Return the data
+        return job_data

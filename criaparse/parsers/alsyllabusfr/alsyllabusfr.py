@@ -3,7 +3,7 @@ from typing import List
 
 from fastapi import UploadFile
 
-from criaparse.job import Job
+from criaparse.daemon.job import Job
 from criaparse.parser import Parser
 from criaparse.models import Element, ParserResponse
 from criaparse.parsers.alsyllabusfr.conversions import run_converter
@@ -15,7 +15,7 @@ class AlSyllabusParserFr(Parser):
     """
 
     @classmethod
-    def parser_name(cls) -> str:
+    def name(cls) -> str:
         return "ALSYLLABUSFR"
 
     @classmethod
@@ -48,6 +48,6 @@ class AlSyllabusParserFr(Parser):
 
         end_time = time.time()
 
-        job.set_step_finished(0, "Parsing", (end_time - start_time))
+        await job.set_step_finished(0, "Parsing", (end_time - start_time))
 
         return ParserResponse(elements=parsed_elements)

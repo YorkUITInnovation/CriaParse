@@ -113,8 +113,9 @@ def get_custom_swagger_ui_html(
 
 
 @cbv(view)
-class DocsRedirectRoute(CriaRoute):
+class DocsRoute(CriaRoute):
     ResponseModel = HTMLResponse
+    Description = "Get the Swagger UI"
 
     @view.get(
         "/docs",

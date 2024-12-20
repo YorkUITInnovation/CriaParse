@@ -18,7 +18,7 @@ class AlSyllabusParser(Parser):
         return 1
 
     @classmethod
-    def parser_name(cls) -> str:
+    def name(cls) -> str:
         return "ALSYLLABUS"
 
     def accepted_mimetypes(self) -> List[str]:

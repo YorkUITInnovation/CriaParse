@@ -14,10 +14,12 @@ view = APIRouter()
 @cbv(view)
 class OpenAPIRoute(CriaRoute):
     ResponseModel = JSONResponse
+    Description = "OpenAPI Schema"
 
     @view.get(
         "/openapi.json",
-        response_class=JSONResponse
+        response_class=JSONResponse,
+        description=Description,
     )
     @catch_exceptions(APIResponse)
     async def execute(self, request: Request) -> ResponseModel:

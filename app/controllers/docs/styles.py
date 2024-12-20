@@ -13,10 +13,11 @@ view = APIRouter()
 
 
 @cbv(view)
-class DocsRedirectRoute(CriaRoute):
+class DocsStylesRoute(CriaRoute):
     ResponseModel = Response
     CSS_FP: Path = Path(__file__).parent.joinpath("theme.css")
     CSS: str = open(CSS_FP, "r").read()
+    Description = "Get the CSS for the theme"
 
     def get_css(self) -> str:
         """Get CSS for theme"""

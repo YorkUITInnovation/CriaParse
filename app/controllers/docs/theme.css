@@ -4,6 +4,7 @@
     --background-primary: #24292d;
     --background-secondary: rgb(26 27 35);
     --color-primary: #eaeaea;
+    --color-secondary: rgb(26 27 35);
 }
 
 hgroup.main > a {
@@ -95,4 +96,8 @@ input.file {
 
 div.loading {
     filter: invert(0.8);
+}
+
+input[type='file'] {
+    color: var(--color-secondary);
 }

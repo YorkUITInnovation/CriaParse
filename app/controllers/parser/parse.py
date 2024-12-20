@@ -6,8 +6,7 @@ from starlette.requests import Request
 
 from app.controllers.schemas import catch_exceptions, APIResponse, exception_response
 from app.core.route import CriaRoute
-from criaparse.client import ParseStrategy
-from criaparse.models import Element, ParserResponse, Asset
+from criaparse.models import Element, ParserResponse, Asset, ParserStrategy
 from criaparse.parsers.generic.errors import ParseModelMissingError
 
 view = APIRouter()
@@ -21,13 +20,14 @@ class ParserParseResponse(APIResponse):
 @cbv(view)
 class ParserParseRoute(CriaRoute):
     ResponseModel = ParserParseResponse
+    Description = "Parse a file synchronously & get the result. Subject to timeout errors for large files."
 
     @view.post(
         path="/parser/parse",
         name="Parse a file",
         summary="Parse a file",
         description="Parse a file",
-        deprecated=False
+        deprecated=True
     )
     @catch_exceptions(
         ResponseModel
@@ -43,12 +43,13 @@ class ParserParseRoute(CriaRoute):
     async def execute(
             self,
             request: Request,
-            strategy: ParseStrategy,
+            strategy: ParserStrategy,
             llm_model_id: Optional[int] = None,
             embedding_model_id: Optional[int] = None,
             file: UploadFile = File(...)
     ) -> ResponseModel:
-        job_response: ParserResponse = await request.app.criaparse.parse(
+        # Get the job response
+        job_response: ParserResponse = await request.app.criaparse.parse_sync(
             file=file,
             strategy=strategy,
             llm_model_id=llm_model_id,

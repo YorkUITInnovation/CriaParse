@@ -11,9 +11,11 @@ view = APIRouter()
 @cbv(view)
 class DocsRedirectRoute(CriaRoute):
     ResponseModel = RedirectResponse
+    Description = "Redirect to the Swagger UI documentation."
 
     @view.get(
         "/",
+        name=Description,
     )
     @catch_exceptions(
         APIResponse

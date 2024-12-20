@@ -30,8 +30,6 @@ class CriaParseAPI(FastAPI):
 
     def __init__(
             self,
-            criaparse: CriaParse,
-            criadex: CriadexSDK,
             **extra: Any
     ):
         super().__init__(**extra)
@@ -39,10 +37,11 @@ class CriaParseAPI(FastAPI):
         # FastAPI Setup
         self.state: State = getattr(self, 'state', State())
         self.logger: logging.Logger = logging.getLogger('uvicorn.info')
+        self.loop = asyncio.get_event_loop()
 
         # Criadex Setup
-        self.criaparse: CriaParse = criaparse
-        self.criadex: CriadexSDK = criadex
+        self.criaparse: CriaParse | None = None
+        self.criadex: CriadexSDK | None = None
 
     @classmethod
     async def create(cls) -> CriaParseAPI:
@@ -53,22 +52,11 @@ class CriaParseAPI(FastAPI):
 
         """
 
-        criadex_sdk: CriadexSDK = CriadexSDK(
-            api_base=config.CRIADEX_CREDENTIALS.api_base,
-            error_stacktrace=False
-        )
-
-        await criadex_sdk.authenticate(api_key=config.CRIADEX_CREDENTIALS.api_key)
-
-        redis_pool: Redis = await from_url(str(config.REDIS_CREDENTIALS))
-
         # Make more stuff
         _app: CriaParseAPI = CriaParseAPI(
-            criaparse=CriaParse(criadex_sdk, redis_pool),
-            criadex=criadex_sdk,
             docs_url=None,
             openapi_url=None,
-            lifespan=cls.app_lifespan
+            lifespan=cls.app_lifespan,
         )
 
         # Add extra bells & whistles
@@ -76,7 +64,7 @@ class CriaParseAPI(FastAPI):
         _app.include_handlers()
         _app.include_middlewares()
 
-        # Please shut up
+        # Disable aiomysql warnings
         logging.getLogger('asyncio').setLevel(logging.CRITICAL)
         warnings.filterwarnings('ignore', module='aiomysql')
 
@@ -151,8 +139,33 @@ class CriaParseAPI(FastAPI):
         if not await criaparse_api.preflight_checks():
             exit()
 
+        # Create the Criadex SDK
+        criadex_sdk: CriadexSDK = CriadexSDK(
+            api_base=config.CRIADEX_CREDENTIALS.api_base,
+            error_stacktrace=False
+        )
+
+        # Authenticate it
+        await criadex_sdk.authenticate(api_key=config.CRIADEX_CREDENTIALS.api_key)
+
+        # Get the Redis Pool
+        redis_pool: Redis = await from_url(str(config.REDIS_CREDENTIALS))
+
+        # Set the SDK and Redis pool
+        criaparse_api.criadex = criadex_sdk
+        criaparse_api.criaparse = CriaParse(criadex=criadex_sdk, redis=redis_pool)
+        criaparse_api.criaparse.start()
+
         # Shutdown is after yield
         yield
+
+        # Shut down task loop
+        await criaparse_api.criaparse.close()
+
+        # Close pools
+        await redis_pool.aclose()
+        # noinspection PyProtectedMember
+        await criadex_sdk._httpx.aclose()
 
         criaparse_api.logger.info("Shutting down Criaparse...")
 

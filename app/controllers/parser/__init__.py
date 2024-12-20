@@ -1,6 +1,6 @@
 from fastapi import Security
 
-from app.controllers.parser import parse, strategies, queue, results
+from app.controllers.parser import parse, strategies, queue, poll
 from app.core import config
 from app.core.route import CriaRouter
 from app.core.schemas import AppMode
@@ -12,8 +12,8 @@ router = CriaRouter(
 )
 
 router.include_views(
+    queue.view,
+    poll.view,
     parse.view,
     strategies.view,
-    # queue.view,
-    # results.view
 )

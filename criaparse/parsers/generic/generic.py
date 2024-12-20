@@ -7,7 +7,7 @@ from fastapi import UploadFile
 from llama_index.embeddings.azure_openai import AzureOpenAIEmbedding
 from llama_index.multi_modal_llms.azure_openai import AzureOpenAIMultiModal
 
-from criaparse.job import Job
+from criaparse.daemon.job import Job
 from criaparse.models import ElementType, Element, ParserResponse, Asset
 from criaparse.parser import Parser
 from criaparse.parsers.generic.errors import ParseModelMissingError
@@ -35,7 +35,7 @@ class GenericParser(Parser):
         return 6
 
     @classmethod
-    def parser_name(cls) -> str:
+    def name(cls) -> str:
         return "GENERIC"
 
     def supports_file(self, file: UploadFile) -> bool:
@@ -107,7 +107,7 @@ class GenericParser(Parser):
 
         async def on_step_finished(step_name: str, parse_time: float) -> None:
             step_num = semantic_step_map[step_name]
-            job.set_step_finished(step_name=step_name, step_number=step_num, time_taken=parse_time)
+            await job.set_step_finished(step_name=step_name, step_number=step_num, time_taken=parse_time)
 
         parsed_elements, _ = await parser.aparse(
             document=self.to_buffer(file),

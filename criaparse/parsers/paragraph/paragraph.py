@@ -17,7 +17,7 @@ class ParagraphParser(Parser):
         return 1
 
     @classmethod
-    def parser_name(cls) -> str:
+    def name(cls) -> str:
         return "PARAGRAPH"
 
     def accepted_mimetypes(self) -> List[str]:

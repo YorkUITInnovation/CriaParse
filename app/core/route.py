@@ -19,9 +19,16 @@ class CriaRouter(APIRouter):
 
 class CriaRoute(ABC):
 
+    # noinspection PyPep8Naming
     @property
     @abstractmethod
     def ResponseModel(self) -> Type[ResponseModel]:
+        raise NotImplementedError
+
+    # noinspection PyPep8Naming
+    @property
+    @abstractmethod
+    def Description(self) -> Type[ResponseModel]:
         raise NotImplementedError
 
     @abstractmethod

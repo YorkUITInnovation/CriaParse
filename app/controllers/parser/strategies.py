@@ -17,12 +17,14 @@ class ParserStrategiesResponse(APIResponse):
 @cbv(view)
 class ParserStrategiesRoute(CriaRoute):
     ResponseModel = ParserStrategiesResponse
+    Description = "List the available parsing strategies"
 
     @view.get(
         path="/parser/strategies",
-        name="List available parsing strategies",
-        summary="List available parsing strategies",
-        description="List available parsing strategies",
+        name=Description,
+        summary=Description,
+        description=Description,
+        deprecated=True
     )
     @catch_exceptions(
         ResponseModel
@@ -31,7 +33,6 @@ class ParserStrategiesRoute(CriaRoute):
             self,
             request: Request,
     ) -> ResponseModel:
-        # Success!
         return self.ResponseModel(
             code="SUCCESS",
             status=200,
