@@ -1,6 +1,6 @@
 from typing import List
 
-from criaparse.models import Element, ParserResponse, ParserFile
+from criaparse.models import Element, ParserResponse, ParserFile, ParserStrategy
 from criaparse.parser import Parser
 from criaparse.parsers.paragraph.conversions import run_converter
 
@@ -15,8 +15,8 @@ class ParagraphParser(Parser):
         return 1
 
     @classmethod
-    def name(cls) -> str:
-        return "PARAGRAPH"
+    def strategy(cls) -> str:
+        return ParserStrategy.PARAGRAPH
 
     def accepted_mimetypes(self) -> List[str]:
         """

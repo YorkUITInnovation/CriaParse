@@ -11,7 +11,7 @@ from llama_index.embeddings.azure_openai import AzureOpenAIEmbedding
 from llama_index.multi_modal_llms.azure_openai import AzureOpenAIMultiModal
 
 from criaparse.daemon.job import Job
-from criaparse.models import ElementType, Element, ParserResponse, Asset, FileUnsupportedParseError, ParserFile
+from criaparse.models import ElementType, Element, ParserResponse, Asset, FileUnsupportedParseError, ParserFile, ParserStrategy
 from criaparse.parser import Parser
 from criaparse.parsers import alsyllabus
 from criaparse.parsers.generic.errors import ParseModelMissingError
@@ -28,7 +28,9 @@ semantic_step_map: dict[str, int] = {
     'Remove Small Nodes': 9
 }
 
+semantic_step_map_inverted: dict[int, str] = {v: k for k, v in semantic_step_map.items()}
 DOCX_FILETYPE: str = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+AL_EXT_STEP_NAME: str = 'Al Extension'
 
 
 class GenericParser(Parser):
@@ -46,8 +48,8 @@ class GenericParser(Parser):
         return len(semantic_step_map) + extra_steps
 
     @classmethod
-    def name(cls) -> str:
-        return "GENERIC"
+    def strategy(cls) -> str:
+        return ParserStrategy.GENERIC
 
     def supports_file(self, file: UploadFile) -> bool:
         """
@@ -67,6 +69,15 @@ class GenericParser(Parser):
 
         return []
 
+    @classmethod
+    async def _set_initial_steps(cls, job: Job, al_extension: bool):
+        step_map: dict[int, str] = semantic_step_map_inverted.copy()
+
+        if al_extension:
+            step_map[len(semantic_step_map) + 1] = AL_EXT_STEP_NAME
+
+        await job.set_steps(steps=step_map)
+
     async def _parse(
             self,
             file: ParserFile,
@@ -81,10 +92,16 @@ class GenericParser(Parser):
 
         """
 
-        if kwargs.get('al_extension') is True and file.content_type != DOCX_FILETYPE:
+        # Check if ext enabled
+        al_extension: bool = bool(kwargs.get('al_extension', False))
+
+        if al_extension and file.content_type != DOCX_FILETYPE:
             raise FileUnsupportedParseError(
-                f"The {self.name()} parser's 'Al Extension' module requires a DOCX file, but you uploaded a {file.content_type.split('/')[-1].upper()}."
+                f"The {self.name()} parser's '{AL_EXT_STEP_NAME}' module requires a DOCX file, but you uploaded a {file.content_type.split('/')[-1].upper()}."
             )
+
+        # Update the initial # of steps
+        await self._set_initial_steps(job, al_extension)
 
         llm_model_info: ModelAboutRoute.Response = kwargs['llm_model_info']
         embedding_model_info: ModelAboutRoute.Response = kwargs['embedding_model_info']
@@ -134,10 +151,10 @@ class GenericParser(Parser):
         )
 
         # If al is enabled, parse using that & extend the elements with the extra step
-        if kwargs.get('al_extension') is True:
+        if al_extension:
             timings, response = with_timings_sync(fn=functools.partial(self.al_extension, file_buffer=file.buffer))
             parsed_elements.extend(response)
-            await job.set_step_finished(step_name='Al Extension', step_number=len(semantic_step_map) + 1, time_taken=timings)
+            await job.set_step_finished(step_name=AL_EXT_STEP_NAME, step_number=len(semantic_step_map) + 1, time_taken=timings)
 
         output_elements, output_assets = self.parse_parser_outputs(parsed_elements)
         return ParserResponse(elements=output_elements, assets=output_assets)

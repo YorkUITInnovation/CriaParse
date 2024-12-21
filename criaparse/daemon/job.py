@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 import uuid
 from typing import TYPE_CHECKING, Awaitable, Dict
 
@@ -24,8 +25,6 @@ class Job:
     def __init__(
             self,
             job_data: JobData,
-            parser: "Parser",
-            redis: Redis
     ):
         """Create a Job instance"""
 
@@ -68,7 +67,7 @@ class Job:
         )
 
         # Create Job
-        job: "Job" = cls(parser=parser, redis=redis, job_data=job_data)
+        job: "Job" = cls(job_data=job_data)
 
         # Get the model information dynamically
         if kwargs['llm_model_id'] and kwargs['embedding_model_id']:
@@ -82,9 +81,10 @@ class Job:
             kwargs['llm_model_info'] = llm_model_info
             kwargs['embedding_model_info'] = embedding_model_info
 
-        # Start the job & return the Job instance
+        # Convert the file here to prevent io stream closing by FastAPI
         parser_file = await ParserFile.from_upload_file(upload_file=file)
 
+        # Start the job & return the Job instance
         return await job.start(
             parser.parse(
                 file=parser_file,
@@ -109,6 +109,21 @@ class Job:
         """Redis model for the ob"""
         return self._data
 
+    async def set_steps(
+            self,
+            steps: dict[int, str]
+    ):
+
+        # Initialize the timings for the steps
+        for step_num, step_name in steps.items():
+            self._data.step_timings[step_num] = JobDataTiming(
+                step_name=step_name,
+                time_taken=None,
+                timestamp_completed=None
+            )
+
+        await self._data.upsert()
+
     async def set_step_finished(
             self,
             step_name: str,
@@ -125,11 +140,16 @@ class Job:
         """
 
         # Update the pertinent data
-        self._data.step_timings[step_number] = JobDataTiming(step_name=step_name, time_taken=time_taken)
+        self._data.step_timings[step_number] = JobDataTiming(
+            step_name=step_name,
+            time_taken=time_taken,
+            timestamp_completed=round(time.time() * 1000)
+        )
+
         self._data.step = step_number
         self._data.step_name = step_name
 
-        # Update the model
+        # Update the JobData model
         await self._data.upsert()
 
     async def set_response(
@@ -155,7 +175,8 @@ class JobDataTiming(BaseModel):
     """
 
     step_name: str
-    time_taken: float
+    time_taken: float | None
+    timestamp_completed: float | None
 
 
 class JobData(BaseModel):

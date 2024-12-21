@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List
 
 from criaparse.daemon.job import Job
-from criaparse.models import ParserResponse, FileUnsupportedParseError, ParserFile
+from criaparse.models import ParserResponse, FileUnsupportedParseError, ParserFile, ParserStrategy
 
 
 class Parser(ABC):
@@ -82,7 +82,7 @@ class Parser(ABC):
 
     @classmethod
     @abstractmethod
-    def name(cls) -> str:
+    def strategy(cls) -> ParserStrategy:
         """
         Get the name of the parser
 
@@ -91,3 +91,8 @@ class Parser(ABC):
         """
 
         raise NotImplementedError
+
+    @classmethod
+    def name(cls) -> str:
+        return cls.strategy().value
+

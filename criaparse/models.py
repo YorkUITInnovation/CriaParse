@@ -6,7 +6,7 @@ import io
 import typing
 import uuid
 from io import BytesIO
-from typing import List, Generator
+from typing import List, Generator, Dict, TypedDict
 
 from pydantic import BaseModel, Field, PrivateAttr
 from starlette.datastructures import UploadFile
@@ -141,3 +141,5 @@ class FileUnsupportedParseError(RuntimeError):
     Thrown when someone tries to parse a file not supported by a parser
 
     """
+
+

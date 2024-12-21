@@ -5,7 +5,7 @@ from fastapi import UploadFile
 
 from criaparse.daemon.job import Job
 from criaparse.parser import Parser
-from criaparse.models import Element, ParserResponse, ParserFile
+from criaparse.models import Element, ParserResponse, ParserFile, ParserStrategy
 from criaparse.parsers.alsyllabusfr.conversions import run_converter
 
 
@@ -15,8 +15,8 @@ class AlSyllabusParserFr(Parser):
     """
 
     @classmethod
-    def name(cls) -> str:
-        return "ALSYLLABUSFR"
+    def strategy(cls) -> ParserStrategy:
+        return ParserStrategy.AL_SYLLABUS_FR
 
     @classmethod
     def step_count(cls, **kwargs) -> int:

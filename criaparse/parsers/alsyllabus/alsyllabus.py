@@ -1,6 +1,6 @@
 from typing import List
 
-from criaparse.models import ElementType, Element, ParserResponse, ParserFile
+from criaparse.models import ElementType, Element, ParserResponse, ParserFile, ParserStrategy
 from criaparse.parser import Parser
 from criaparse.parsers.alsyllabus.al_types import AlNode
 from criaparse.parsers.alsyllabus.conversions import convert_file
@@ -16,8 +16,8 @@ class AlSyllabusParser(Parser):
         return 1
 
     @classmethod
-    def name(cls) -> str:
-        return "ALSYLLABUS"
+    def strategy(cls) -> str:
+        return ParserStrategy.AL_SYLLABUS
 
     def accepted_mimetypes(self) -> List[str]:
         """
