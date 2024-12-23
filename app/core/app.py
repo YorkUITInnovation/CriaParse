@@ -37,14 +37,13 @@ class CriaParseAPI(FastAPI):
         # FastAPI Setup
         self.state: State = getattr(self, 'state', State())
         self.logger: logging.Logger = logging.getLogger('uvicorn.info')
-        self.loop = asyncio.get_event_loop()
 
         # Criadex Setup
         self.criaparse: CriaParse | None = None
         self.criadex: CriadexSDK | None = None
 
     @classmethod
-    async def create(cls) -> CriaParseAPI:
+    def create(cls) -> CriaParseAPI:
         """
         Generate an instance of the app
 
@@ -171,4 +170,4 @@ class CriaParseAPI(FastAPI):
 
 
 # Instance of the app, started by Uvicorn.
-app: CriaParseAPI = asyncio.get_event_loop().run_until_complete(CriaParseAPI.create())
+app: CriaParseAPI = CriaParseAPI.create()

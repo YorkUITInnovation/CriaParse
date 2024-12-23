@@ -53,4 +53,4 @@ COPY --chown=${USER}:${USER} ./entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/usr/bin/tini", "-g", "--"]
-CMD ["/entrypoint.sh", "${USER}"]
+CMD ["/entrypoint.sh", "$USER"]

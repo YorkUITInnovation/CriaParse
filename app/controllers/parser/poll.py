@@ -49,7 +49,7 @@ class ParserPollRoute(CriaRoute):
         return self.ResponseModel(
             code="SUCCESS",
             status=200,
-            message="Successfully parsed the document.",
+            message="Successfully parsed the document." if job_data.finished else "Currently parsing the document.",
             job=job_data
         )
 
