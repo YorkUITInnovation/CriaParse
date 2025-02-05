@@ -1,3 +1,4 @@
+import os
 from typing import Optional, List
 
 from fastapi import APIRouter, UploadFile, File
@@ -6,7 +7,7 @@ from starlette.requests import Request
 
 from app.controllers.schemas import catch_exceptions, APIResponse, exception_response
 from app.core.route import CriaRoute
-from criaparse.models import Element, ParserResponse, Asset, ParserStrategy, FileUnsupportedParseError
+from criaparse.models import Element, ParserResponse, Asset, ParserStrategy, FileUnsupportedParseError, ElementType
 from criaparse.parsers.generic.errors import ParseModelMissingError
 
 view = APIRouter()
@@ -66,7 +67,23 @@ class ParserParseRoute(CriaRoute):
                 message=str(ex)
             )
 
-        # Success!
+        # Feb 5, 2025, Patrick is away. To add immediate support for assets,
+        # I have added 'ENABLE_BACKWARDS_COMPATIBLE_ASSET_CONTAINER' as a TEMPORARY << read: TEMPORARY!!!! solution.
+        # This passed an additional 'meta' element Criadex extracts when uploading a document.
+        if os.getenv('ENABLE_BACKWARDS_COMPATIBLE_ASSET_CONTAINER', 'false').lower() == 'true':
+            job_response.elements.append(
+                Element(
+                    type=ElementType.BACKWARDS_COMPATIBLE_ASSET_CONTAINER,
+                    text="Backwards Compatible Asset Container",
+                    metadata={
+                        'assets': [asset.model_dump() for asset in (job_response.assets or [])]
+                    }
+                )
+            )
+
+            # To prevent duplicate data, since assets are already heavy, if this feature is enabled, assets are excluded from the response.
+            job_response.assets = []
+
         return self.ResponseModel(
             code="SUCCESS",
             status=200,

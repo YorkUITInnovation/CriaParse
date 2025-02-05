@@ -6,7 +6,7 @@ import io
 import typing
 import uuid
 from io import BytesIO
-from typing import List, Generator, Dict, TypedDict
+from typing import List, Generator
 
 from pydantic import BaseModel, Field, PrivateAttr
 from starlette.datastructures import UploadFile
@@ -78,6 +78,8 @@ class ElementType(enum.Enum):
     UNKNOWN = "Unknown"
     TABLE_ENTRY = "TableEntry"
 
+    BACKWARDS_COMPATIBLE_ASSET_CONTAINER = "BackwardsCompatibleAssetContainer"
+
     @classmethod
     def of(cls, value: str) -> "ElementType":
         try:
@@ -141,5 +143,3 @@ class FileUnsupportedParseError(RuntimeError):
     Thrown when someone tries to parse a file not supported by a parser
 
     """
-
-
