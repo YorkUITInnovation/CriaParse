@@ -77,7 +77,6 @@ class ElementType(enum.Enum):
     # Custom
     UNKNOWN = "Unknown"
     TABLE_ENTRY = "TableEntry"
-
     BACKWARDS_COMPATIBLE_ASSET_CONTAINER = "BackwardsCompatibleAssetContainer"
 
     @classmethod
@@ -121,9 +120,10 @@ class Asset(BaseModel):
 
     """
 
-    uuid: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    uuid: str  # Must not be passed, must be generated based on WHATEVER the element_id is, as this is used to caption the image & thus must match for embeds.
     data_mimetype: str
     data_base64: str
+    description: str
 
 
 class Element(BaseModel):
@@ -136,6 +136,7 @@ class Element(BaseModel):
 class ParserResponse(BaseModel):
     elements: List[Element]
     assets: List[Asset] = Field(default_factory=list)
+    timings: dict = Field(default_factory=dict)
 
 
 class FileUnsupportedParseError(RuntimeError):

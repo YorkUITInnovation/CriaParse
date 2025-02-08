@@ -1,5 +1,6 @@
 import functools
 import io
+import os
 from typing import List
 
 from CriadexSDK.routers.models.azure import ModelAboutRoute
@@ -144,7 +145,7 @@ class GenericParser(Parser):
             await job.set_step_finished(step_name=step_name, step_number=step_num, time_taken=parse_time)
 
         # Parse using the SemanticDocumentParser
-        parsed_elements, _ = await parser.aparse(
+        parsed_elements, parser_timings = await parser.aparse(
             document=file.buffer,
             document_filename=file.filename,
             on_step_finished=on_step_finished
@@ -157,12 +158,47 @@ class GenericParser(Parser):
             await job.set_step_finished(step_name=AL_EXT_STEP_NAME, step_number=len(semantic_step_map) + 1, time_taken=timings)
 
         output_elements, output_assets = self.parse_parser_outputs(parsed_elements)
-        return ParserResponse(elements=output_elements, assets=output_assets)
+
+        # Feb 5, 2025, Patrick is away. To add immediate support for assets,
+        # I have added 'ENABLE_BACKWARDS_COMPATIBLE_ASSET_CONTAINER' as a TEMPORARY << read: TEMPORARY!!!! solution.
+        # This passed an additional 'meta' element Criadex extracts when uploading a document.
+        if os.getenv('ENABLE_BACKWARDS_COMPATIBLE_ASSET_CONTAINER', 'false').lower() == 'true':
+            output_elements.append(
+                Element(
+                    type=ElementType.BACKWARDS_COMPATIBLE_ASSET_CONTAINER,
+                    text="Backwards Compatible Asset Container",
+                    metadata={
+                        'assets': [asset.model_dump() for asset in (output_assets or [])]
+                    }
+                )
+            )
+
+            # To prevent duplicate data, since assets are already heavy, if this feature is enabled, assets are excluded from the response.
+            output_assets = []
+
+        return ParserResponse(elements=output_elements, assets=output_assets, timings=parser_timings)
 
     @classmethod
     def al_extension(cls, file_buffer: io.BytesIO) -> List[dict]:
         """Execute the Al extension to extend the generic parser to handle syllabi matching the Al Syllabus template format"""
         return alsyllabus.convert_file_partial(file_buffer)
+
+    @classmethod
+    def parse_raw_description(cls, description: str) -> str:
+        """
+        Extract just the raw description without LLM hint tags
+
+        f"[IMAGE {element['element_id']} DESCRIPTION START]{response.text}[IMAGE {element['element_id']} DESCRIPTION END]"
+
+        :param description: The description to parse (looks like ^^)
+        :return: The raw description (response.text in the string above ^^)
+
+        """
+
+        try:
+            return description.split('START]')[1].split('[IMAGE')[0]
+        except IndexError:
+            return description
 
     @classmethod
     def parse_parser_outputs(cls, elements: List[dict]) -> tuple[List[Element], List[Asset]]:
@@ -178,18 +214,16 @@ class GenericParser(Parser):
         output_assets = []
 
         for element in elements:
-
             if element['type'] == ElementType.IMAGE.value:
                 asset: Asset = Asset(
+                    uuid=element['element_id'],
                     data_mimetype=element['metadata'].pop('image_mime_type'),
                     data_base64=element['metadata'].pop('image_base64'),
+                    description=cls.parse_raw_description(element['text'])
                 )
 
-                output_assets.append(
-                    asset
-                )
-
-                element['metadata']['asset_uuid'] = asset.uuid
+                output_assets.append(asset)
+                element['metadata']['asset_uuid'] = element['element_id']
 
             output_elements.append(
                 Element(
