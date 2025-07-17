@@ -1,6 +1,6 @@
 #           BASIC FILE SETUP
 
-FROM        python:3.11-slim-bullseye AS base
+FROM        python:3.11-bullseye AS base
 
 LABEL       author="Isaac Kogan" maintainer="koganisa@yorku.ca"
 
@@ -9,7 +9,7 @@ ARG USER_ID="1000"
 ARG PYTHON="python3"
 
 RUN apt-get update \
- && apt-get -y install git gcc g++ ca-certificates dnsutils curl iproute2 ffmpeg procps tini libmagic1 \
+ && apt-get -y install git gcc g++ ca-certificates dnsutils curl iproute2 ffmpeg procps tini libmagic1 poppler-utils tesseract-ocr \
  && useradd -m -d /home/${USER} ${USER}
 
 FROM base AS with_packages
