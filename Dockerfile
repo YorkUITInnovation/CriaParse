@@ -44,8 +44,13 @@ RUN ${PYTHON} -c "from unstructured.nlp.tokenize import download_nltk_packages; 
 
 # PROJECT SOURCE CODE
 
-COPY ./app ./app
-COPY ./criaparse ./criaparse
+# Ensure correct ownership during copy
+COPY --chown=${USER}:${USER} ./app ./app
+COPY --chown=${USER}:${USER} ./criaparse ./criaparse
+
+# Normalize permissions: directories need +x so Python can traverse
+RUN find ./app ./criaparse -type d -exec chmod 755 {} + \
+ && find ./app ./criaparse -type f -exec chmod 644 {} +
 
 # START SERVER
 

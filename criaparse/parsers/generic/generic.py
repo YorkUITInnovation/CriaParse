@@ -217,8 +217,8 @@ class GenericParser(Parser):
             if element['type'] == ElementType.IMAGE.value:
                 asset: Asset = Asset(
                     uuid=element['element_id'],
-                    data_mimetype=element['metadata'].pop('image_mime_type'),
-                    data_base64=element['metadata'].pop('image_base64'),
+                    data_mimetype=element['metadata'].pop('image_mime_type', None),
+                    data_base64=element['metadata'].pop('image_base64', None),
                     description=cls.parse_raw_description(element['text'])
                 )
 
