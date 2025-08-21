@@ -9,7 +9,7 @@ ARG USER_ID="1000"
 ARG PYTHON="python3"
 
 RUN apt-get update \
- && apt-get -y install git gcc g++ ca-certificates dnsutils curl iproute2 ffmpeg procps tini libmagic1 poppler-utils tesseract-ocr \
+ && apt-get -y install git gcc g++ ca-certificates dnsutils curl iproute2 ffmpeg procps tini libmagic1 poppler-utils tesseract-ocr nano vim less \
  && useradd -m -d /home/${USER} ${USER}
 
 FROM base AS with_packages
