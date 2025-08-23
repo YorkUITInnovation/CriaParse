@@ -65,6 +65,10 @@ class CriaParse:
     ) -> Job:
         """Queue a job to be processed by the daemon"""
 
+        # Default to H1-grouped nodes for indexing when using the GENERIC strategy
+        if strategy == ParserStrategy.GENERIC and 'group_by_h1' not in kwargs:
+            kwargs['group_by_h1'] = True
+
         job: Job = await Job.create(
             parser=self._parsers[strategy],
             criadex=self._criadex,

@@ -50,13 +50,14 @@ class ParserParseRoute(CriaRoute):
     ) -> ResponseModel:
 
         try:
-            # Queue a Job
+            # Queue a Job (indexing path) with H1 grouping enabled
             job: Job = await request.app.criaparse.queue(
                 file=file,
                 strategy=strategy,
                 llm_model_id=llm_model_id,
                 embedding_model_id=embedding_model_id,
-                al_extension=al_extension
+                al_extension=al_extension,
+                group_by_h1=True
             )
         except FileUnsupportedParseError as ex:
             return self.ResponseModel(

@@ -12,8 +12,8 @@ from llama_index.embeddings.azure_openai import AzureOpenAIEmbedding
 from llama_index.multi_modal_llms.azure_openai import AzureOpenAIMultiModal
 
 from criaparse.daemon.job import Job
-from criaparse.models import ElementType, Element, ParserResponse, Asset, FileUnsupportedParseError, ParserFile, ParserStrategy
 from criaparse.parser import Parser
+from criaparse.models import ElementType, Element, ParserResponse, Asset, FileUnsupportedParseError, ParserFile, ParserStrategy
 from criaparse.parsers import alsyllabus
 from criaparse.parsers.generic.errors import ParseModelMissingError
 
@@ -157,7 +157,25 @@ class GenericParser(Parser):
             parsed_elements.extend(response)
             await job.set_step_finished(step_name=AL_EXT_STEP_NAME, step_number=len(semantic_step_map) + 1, time_taken=timings)
 
-        output_elements, output_assets = self.parse_parser_outputs(parsed_elements)
+        # Group elements by top-level H1 sections and extract assets
+        if kwargs.get('group_by_h1', True):
+            grouped_elements, output_assets = self.group_elements_and_extract_assets(parsed_elements)
+
+            # Convert grouped dicts to Element models, preserving element_id when present
+            output_elements: List[Element] = []
+            for element in grouped_elements:
+                _e = {
+                    'text': element.get('text', ''),
+                    'metadata': element.get('metadata', {}),
+                    'type': ElementType.of(element.get('type', ElementType.NARRATIVE_TEXT.value)),
+                }
+                eid = element.get('element_id')
+                if eid:
+                    _e['element_id'] = eid
+                output_elements.append(Element(**_e))
+        else:
+            # Preserve legacy behavior for indexer compatibility
+            output_elements, output_assets = self.parse_parser_outputs(parsed_elements)
 
         # Feb 5, 2025, Patrick is away. To add immediate support for assets,
         # I have added 'ENABLE_BACKWARDS_COMPATIBLE_ASSET_CONTAINER' as a TEMPORARY << read: TEMPORARY!!!! solution.
@@ -217,20 +235,164 @@ class GenericParser(Parser):
             if element['type'] == ElementType.IMAGE.value:
                 asset: Asset = Asset(
                     uuid=element['element_id'],
-                    data_mimetype=element['metadata'].pop('image_mime_type', None),
-                    data_base64=element['metadata'].pop('image_base64', None),
+                    data_mimetype=element['metadata'].pop('image_mime_type', None) or '',
+                    data_base64=element['metadata'].pop('image_base64', None) or '',
                     description=cls.parse_raw_description(element['text'])
                 )
 
                 output_assets.append(asset)
                 element['metadata']['asset_uuid'] = element['element_id']
 
-            output_elements.append(
-                Element(
-                    text=element['text'],
-                    metadata=element['metadata'],
-                    type=ElementType.of(element['type']),
-                )
+            # Preserve the original element_id for linkage
+            el_kwargs = dict(
+                text=element['text'],
+                metadata=element['metadata'],
+                type=ElementType.of(element['type']),
             )
+            if 'element_id' in element and element['element_id']:
+                el_kwargs['element_id'] = element['element_id']
+            output_elements.append(Element(**el_kwargs))
 
         return output_elements, output_assets
+
+    @classmethod
+    def group_elements_and_extract_assets(cls, elements: List[dict]) -> tuple[List[dict], List[Asset]]:
+        """
+        Group parsed elements into semantic sections keyed by H1 (level 1 Title) while extracting assets,
+        and preserve per-table and per-image nodes as standalone elements interleaved in order.
+
+        Rules:
+        - Maintain one Title section node per H1 that aggregates non-table/ non-image text up to the next H1.
+        - Emit Table elements as separate nodes in the output stream at their original positions.
+        - Emit Image elements as separate nodes, with metadata.asset_uuid set and caption text preserved.
+        - Lower-level titles (H2/H3/...) are included in the current H1 section's text.
+        - Preface section is created if content exists before the first H1.
+        Returns a tuple of (ordered_nodes_including_sections_tables_images, assets).
+        """
+
+        def heading_level(meta: dict) -> int | None:
+            if not isinstance(meta, dict):
+                return None
+            candidates = ['heading_level', 'level', 'title_level', 'header_level']
+            for key in candidates:
+                val = meta.get(key)
+                if val is None:
+                    continue
+                if isinstance(val, int):
+                    return val
+                try:
+                    sval = str(val).strip()
+                    if sval.lower().startswith('h') and len(sval) > 1 and sval[1:].isdigit():
+                        return int(sval[1:])
+                    if sval.isdigit():
+                        return int(sval)
+                except Exception:
+                    pass
+            return None
+
+        out: List[dict] = []
+        output_assets: List[Asset] = []
+
+        current_section: dict | None = None
+        buffer_parts: List[str] = []
+
+        def update_section_text() -> None:
+            if current_section is None:
+                return
+            current_section['text'] = "\n\n".join([p for p in buffer_parts if p and str(p).strip()])
+
+        def start_section(title_text: str, meta: dict | None) -> None:
+            nonlocal current_section, buffer_parts
+            # If switching sections, finalize the previous one
+            update_section_text()
+            # Begin new section and append immediately to preserve order
+            current_section = {
+                'type': ElementType.TITLE.value,
+                'text': '',
+                'metadata': {
+                    'section_title': title_text,
+                    'heading_level': 1,
+                    'title_metadata': meta or {}
+                }
+            }
+            out.append(current_section)
+            buffer_parts = []
+            if title_text:
+                buffer_parts.append(title_text)
+            update_section_text()
+
+        for el in elements:
+            el_type = el.get('type')
+            el_text = el.get('text', '') or ''
+            el_meta = (el.get('metadata') or {})
+
+            # Extract assets for images and emit a standalone Image node
+            if el_type == ElementType.IMAGE.value:
+                asset = Asset(
+                    uuid=el.get('element_id'),
+                    data_mimetype=el_meta.pop('image_mime_type', None) or '',
+                    data_base64=el_meta.pop('image_base64', None) or '',
+                    description=cls.parse_raw_description(el_text)
+                )
+                output_assets.append(asset)
+                # Ensure a section exists and include caption text
+                if el_text and el_text.strip():
+                    if current_section is None:
+                        start_section(title_text='Preface', meta={})
+                    buffer_parts.append(el_text)
+                    update_section_text()
+                # Emit Image node with asset linkage
+                out.append({
+                    'type': ElementType.IMAGE.value,
+                    'text': el_text,
+                    'metadata': {**el_meta, 'asset_uuid': el.get('element_id')},
+                    'element_id': el.get('element_id')
+                })
+                continue
+
+            # Title handling
+            if el_type == ElementType.TITLE.value:
+                lvl = heading_level(el_meta)
+                if lvl is None or lvl == 1:
+                    # New H1 section
+                    if current_section is None:
+                        start_section(title_text=el_text, meta=el_meta)
+                    else:
+                        start_section(title_text=el_text, meta=el_meta)
+                else:
+                    # Lower-level title stays in the current section
+                    if current_section is None:
+                        start_section(title_text='Preface', meta={})
+                    if el_text and el_text.strip():
+                        buffer_parts.append(el_text)
+                        update_section_text()
+                continue
+
+            # Table handling: emit as standalone node while keeping current section
+            if el_type == ElementType.TABLE.value:
+                # Ensure a section exists
+                if current_section is None:
+                    start_section(title_text='Preface', meta={})
+                # Flush current text into the section
+                update_section_text()
+                # Append the table element as-is (copy to avoid side-effects)
+                out.append({
+                    'type': ElementType.TABLE.value,
+                    'text': el_text,
+                    'metadata': el_meta,
+                    'element_id': el.get('element_id')
+                })
+                # Continue accumulating more text in the same section afterwards
+                continue
+
+            # Any other content joins the current section
+            if current_section is None:
+                start_section(title_text='Preface', meta={})
+            if el_text and str(el_text).strip():
+                buffer_parts.append(str(el_text))
+                update_section_text()
+
+        # Finalize last section text
+        update_section_text()
+
+        return out, output_assets

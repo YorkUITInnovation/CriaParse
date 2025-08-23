@@ -48,6 +48,7 @@ class ParserParseRoute(CriaRoute):
             llm_model_id: Optional[int] = None,
             embedding_model_id: Optional[int] = None,
             al_extension: Optional[bool] = False,
+            group_by_h1: Optional[bool] = False,
             file: UploadFile = File(...)
     ) -> ResponseModel:
 
@@ -58,7 +59,8 @@ class ParserParseRoute(CriaRoute):
                 strategy=strategy,
                 llm_model_id=llm_model_id,
                 embedding_model_id=embedding_model_id,
-                al_extension=al_extension
+                al_extension=al_extension,
+                group_by_h1=group_by_h1
             )
         except FileUnsupportedParseError as ex:
             return self.ResponseModel(
