@@ -28,8 +28,8 @@ class CriaRoute(ABC):
     # noinspection PyPep8Naming
     @property
     @abstractmethod
-    def Description(self) -> Type[ResponseModel]:
-        raise NotImplementedError
+    def Description(self) -> str:
+        pass
 
     @abstractmethod
     async def execute(self) -> ResponseModel:
