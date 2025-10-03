@@ -13,10 +13,6 @@ pyarrow==16.0.0
 pydantic==2.9.2
 redis==5.2.0
 
-# Build July 17th, Build 2
-SemanticDocumentParser @ git+https://github.com/YorkUITInnovation/SemanticDocumentParser.git
-
-# Don't freak out, the token is read-only on CriadexSDK
-# Due for renewal: November 20th, 2024
-# v1.2.0
-criadexsdk @ git+https://github.com/YorkUITInnovation/CriadexSDK.git
+# update after merge to master
+SemanticDocumentParser @ git+https://github.com/YorkUITInnovation/SemanticDocumentParser.git@feature/ragflow-migration
+criadexsdk @ git+https://github.com/YorkUITInnovation/CriadexSDK.git@feature/ragflow-migration

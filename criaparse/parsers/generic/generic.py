@@ -5,11 +5,9 @@ from typing import List
 
 from CriadexSDK.routers.models.azure import ModelAboutRoute
 from SemanticDocumentParser import SemanticDocumentParser
-from SemanticDocumentParser.llama_extensions.node_parser import AsyncSemanticSplitterNodeParser
 from SemanticDocumentParser.utils import with_timings_sync
 from fastapi import UploadFile
-from llama_index.embeddings.azure_openai import AzureOpenAIEmbedding
-from llama_index.multi_modal_llms.azure_openai import AzureOpenAIMultiModal
+from SemanticDocumentParser.parser import RAGFlow
 
 from criaparse.daemon.job import Job
 from criaparse.parser import Parser
@@ -104,39 +102,13 @@ class GenericParser(Parser):
         # Update the initial # of steps
         await self._set_initial_steps(job, al_extension)
 
-        llm_model_info: ModelAboutRoute.Response = kwargs['llm_model_info']
-        embedding_model_info: ModelAboutRoute.Response = kwargs['embedding_model_info']
+        ragflow_client: RAGFlow = job.criadex.ragflow
+        dataset_id: str = kwargs['dataset_id']
 
-        # Must be provided for this parser
-        if llm_model_info is None or embedding_model_info is None:
-            raise ParseModelMissingError("LLM and embedding model IDs must be provided")
-
-        # Build the LLM Model
-        _llm_model = AzureOpenAIMultiModal(
-            model=llm_model_info.model.api_model,
-            api_key=llm_model_info.model.api_key,
-            api_version=llm_model_info.model.api_version,
-            azure_endpoint=f"https://{llm_model_info.model.api_resource}.openai.azure.com",
-            azure_deployment=llm_model_info.model.api_deployment,
-            max_new_tokens=2048
-        )
-
-        # Build the node parser
-        _node_parser = AsyncSemanticSplitterNodeParser(
-            buffer_size=2,
-            breakpoint_percentile_threshold=85,
-            embed_model=AzureOpenAIEmbedding(
-                model=embedding_model_info.model.api_model,
-                api_key=embedding_model_info.model.api_key,
-                api_version=embedding_model_info.model.api_version,
-                azure_endpoint=f"https://{embedding_model_info.model.api_resource}.openai.azure.com",
-                azure_deployment=embedding_model_info.model.api_deployment,
-            ),
-        )
 
         parser: SemanticDocumentParser = SemanticDocumentParser(
-            llm_model=_llm_model,
-            node_parser=_node_parser,
+            ragflow_client=ragflow_client,
+            dataset_id=dataset_id,
         )
 
         # Function to update the job after each step
