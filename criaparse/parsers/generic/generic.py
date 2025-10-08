@@ -3,7 +3,6 @@ import io
 import os
 from typing import List
 
-from CriadexSDK.routers.models.azure import ModelAboutRoute
 from SemanticDocumentParser import SemanticDocumentParser
 from SemanticDocumentParser.utils import with_timings_sync
 from fastapi import UploadFile
@@ -306,6 +305,7 @@ class GenericParser(Parser):
                     data_base64=el_meta.pop('image_base64', None) or '',
                     description=cls.parse_raw_description(el_text)
                 )
+
                 output_assets.append(asset)
                 # Ensure a section exists and include caption text
                 if el_text and el_text.strip():

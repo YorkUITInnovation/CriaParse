@@ -4,7 +4,7 @@ import traceback
 from functools import wraps
 from typing import Optional, Type, Literal, TypeVar, Callable, Awaitable
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class APIResponse(BaseModel):
@@ -17,7 +17,7 @@ class APIResponse(BaseModel):
     message: Optional[str] = None
     timestamp: int = round(time.time())
     code: str = "SUCCESS"
-    error: Optional[str] = Field(default=None, hidden=True)
+    error: Optional[str] = Field(default=None, json_schema_extra={"hidden": True})
 
     def dict(self, *args, **kwargs):
 
@@ -36,15 +36,12 @@ class APIResponse(BaseModel):
 
         return data
 
-    class Config:
-        @staticmethod
-        def json_schema_extra(schema: dict, _):
-            """Via https://github.com/tiangolo/fastapi/issues/1378"""
-            props = {}
-            for k, v in schema.get('properties', {}).items():
-                if not v.get("hidden", False):
-                    props[k] = v
-            schema["properties"] = props
+    model_config = ConfigDict(json_schema_extra=lambda schema, model: {
+        "properties": {
+            k: v for k, v in schema.get("properties", {}).items()
+            if not v.get("hidden", False)
+        }
+    })
 
 
 APIResponseModel = TypeVar('APIResponseModel', bound=APIResponse)

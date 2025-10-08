@@ -2,9 +2,7 @@ import logging
 from abc import abstractmethod
 from typing import Optional
 
-from CriadexSDK import CriadexSDK
-from CriadexSDK.routers.auth import AuthCheckRoute
-from CriadexSDK.routers.group_auth import GroupAuthCheckRoute
+from CriadexSDK.ragflow_sdk import RAGFlowSDK as CriadexSDK
 from fastapi import Security, HTTPException
 from fastapi.security import APIKeyQuery, APIKeyHeader
 from starlette.requests import Request
@@ -63,9 +61,9 @@ class GetApiKey:
 
         return api_key
 
-    async def get_auth(self) -> AuthCheckRoute.Response:
+    async def get_auth(self):
 
-        response: AuthCheckRoute.Response = await self.criadex.auth.check(
+        response = await self.criadex.auth.check(
             api_key=self.api_key
         )
 
@@ -78,9 +76,9 @@ class GetApiKey:
 
         return response
 
-    async def get_group_auth(self, group_name: str) -> GroupAuthCheckRoute.Response:
+    async def get_group_auth(self, group_name: str):
 
-        response: AuthCheckRoute.Response = await self.criadex.group_auth.check(
+        response = await self.criadex.group_auth.check(
             group_name=group_name,
             api_key=self.api_key
         )

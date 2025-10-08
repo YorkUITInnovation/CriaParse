@@ -6,8 +6,7 @@ import time
 import uuid
 from typing import TYPE_CHECKING, Awaitable, Dict
 
-from CriadexSDK import CriadexSDK
-from CriadexSDK.routers.models.azure import ModelAboutRoute
+from CriadexSDK.ragflow_sdk import RAGFlowSDK as CriadexSDK
 from fastapi import UploadFile
 from pydantic import BaseModel, PrivateAttr, Field
 from redis import Redis
@@ -75,8 +74,8 @@ class Job:
             embedding_model_id = kwargs.pop('embedding_model_id')
 
             # Get the model info from Criadex
-            llm_model_info: ModelAboutRoute.Response = await criadex.models.azure.about(model_id=llm_model_id)
-            embedding_model_info: ModelAboutRoute.Response = await criadex.models.azure.about(model_id=embedding_model_id)
+            llm_model_info = await criadex.models.about(model_id=llm_model_id)
+            embedding_model_info = await criadex.models.about(model_id=embedding_model_id)
 
             kwargs['llm_model_info'] = llm_model_info
             kwargs['embedding_model_info'] = embedding_model_info
