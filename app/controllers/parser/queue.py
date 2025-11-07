@@ -45,6 +45,7 @@ class ParserParseRoute(CriaRoute):
             strategy: ParserStrategy,
             llm_model_id: Optional[int] = None,
             embedding_model_id: Optional[int] = None,
+            dataset_id: Optional[str] = None,
             al_extension: Optional[bool] = False,
             file: UploadFile = File(...),
     ) -> ResponseModel:
@@ -56,6 +57,7 @@ class ParserParseRoute(CriaRoute):
                 strategy=strategy,
                 llm_model_id=llm_model_id,
                 embedding_model_id=embedding_model_id,
+                dataset_id=dataset_id,
                 al_extension=al_extension,
                 group_by_h1=True
             )

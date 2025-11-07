@@ -101,7 +101,7 @@ class GenericParser(Parser):
         # Update the initial # of steps
         await self._set_initial_steps(job, al_extension)
 
-        ragflow_client: RAGFlow = job.criadex.ragflow
+        ragflow_client: RAGFlow = job.criadex
         dataset_id: str = kwargs['dataset_id']
 
 

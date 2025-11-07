@@ -67,7 +67,14 @@ class GetApiKey:
             api_key=self.api_key
         )
 
-        if not response.status == 200:
+        # Be tolerant to dict responses from SDK (httpx json)
+        status = None
+        if isinstance(response, dict):
+            status = response.get("status", 200)
+        else:
+            status = getattr(response, "status", 200)
+
+        if status != 200:
             logging.error("Failed to check API key. Received payload: " + str(response))
             raise BadAPIKeyException(
                 status_code=500,
@@ -83,7 +90,13 @@ class GetApiKey:
             api_key=self.api_key
         )
 
-        if not response.status == 200:
+        status = None
+        if isinstance(response, dict):
+            status = response.get("status", 200)
+        else:
+            status = getattr(response, "status", 200)
+
+        if status != 200:
             logging.error("Failed to check API key. Received payload: " + str(response))
             raise BadAPIKeyException(
                 status_code=500,

@@ -24,6 +24,7 @@ class Job:
     def __init__(
             self,
             job_data: JobData,
+            criadex: CriadexSDK
     ):
         """Create a Job instance"""
 
@@ -32,6 +33,7 @@ class Job:
 
         # The Redis data model
         self._data: JobData = job_data
+        self._criadex: CriadexSDK = criadex
 
     @classmethod
     async def create(
@@ -66,7 +68,7 @@ class Job:
         )
 
         # Create Job
-        job: "Job" = cls(job_data=job_data)
+        job: "Job" = cls(job_data=job_data, criadex=criadex)
 
         # Get the model information dynamically
         if kwargs['llm_model_id'] and kwargs['embedding_model_id']:
@@ -107,6 +109,11 @@ class Job:
     def data(self) -> JobData:
         """Redis model for the ob"""
         return self._data
+
+    @property
+    def criadex(self) -> CriadexSDK:
+        """Criadex SDK client"""
+        return self._criadex
 
     async def set_steps(
             self,
