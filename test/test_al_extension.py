@@ -12,7 +12,7 @@ import io
 def mock_ragflow_client():
     """Fixture for a mocked RAGFlow client."""
     mock_client = MagicMock(autospec=RAGFlow)
-    mock_client.upload_file.return_value = {"doc_ids": ["test_doc_id"]}
+    mock_client.upload_file = AsyncMock(return_value={"document_name": "test_doc_id"})
     mock_client.get_chunks.return_value = [
         {"type": "text", "content": "This is a text chunk."},
         {"type": "image", "content": "This is an image caption."},

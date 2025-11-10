@@ -1,18 +1,56 @@
-import functools
-import io
-import os
-from typing import List
+from typing import List, TYPE_CHECKING, Optional
 
 from SemanticDocumentParser import SemanticDocumentParser
 from SemanticDocumentParser.utils import with_timings_sync
 from fastapi import UploadFile
 from SemanticDocumentParser.parser import RAGFlow
+from unstructured.chunking.title import chunk_by_title
+from unstructured.documents.elements import Text
 
 from criaparse.daemon.job import Job
 from criaparse.parser import Parser
 from criaparse.models import ElementType, Element, ParserResponse, Asset, FileUnsupportedParseError, ParserFile, ParserStrategy
 from criaparse.parsers import alsyllabus
 from criaparse.parsers.generic.errors import ParseModelMissingError
+
+import functools
+import io
+import os
+
+if TYPE_CHECKING:
+    from CriadexSDK.ragflow_sdk import RAGFlowSDK
+
+class RAGFlowWrapper(RAGFlow):
+    def __init__(self, criadex_sdk: "RAGFlowSDK", dataset_id: str):
+        self._criadex_sdk = criadex_sdk
+        self._dataset_id = dataset_id
+        self._last_uploaded_content: Optional[str] = None
+
+    async def upload_file(self, dataset_id: str, file_path: str) -> dict:
+        file_name = os.path.basename(file_path)
+        with open(file_path, "rb") as f:
+            file_contents = f.read().decode('utf-8', errors='ignore')
+
+        self._last_uploaded_content = file_contents
+
+        payload = {
+            "file_name": file_name,
+            "file_contents": {"nodes": [{"text": file_contents, "metadata": {}, "type": "NarrativeText"}], "assets": []},
+            "file_metadata": {}
+        }
+        return await self._criadex_sdk.content.upload(group_name=self._dataset_id, file=payload)
+
+    def get_chunks(self, doc_id: str) -> list[dict]:
+        if self._last_uploaded_content:
+            content = self._last_uploaded_content
+            self._last_uploaded_content = None  # Clear after use
+
+            # Use unstructured to chunk the text
+            elements = [Text(text=content)]
+            chunks = chunk_by_title(elements, max_characters=1000, combine_text_under_n_chars=500)
+            
+            return [{'content': chunk.text} for chunk in chunks]
+        return []
 
 semantic_step_map: dict[str, int] = {
     'Unstructured Partition': 1,
@@ -101,8 +139,8 @@ class GenericParser(Parser):
         # Update the initial # of steps
         await self._set_initial_steps(job, al_extension)
 
-        ragflow_client: RAGFlow = job.criadex
         dataset_id: str = kwargs['dataset_id']
+        ragflow_client: RAGFlow = RAGFlowWrapper(job.criadex, dataset_id)
 
 
         parser: SemanticDocumentParser = SemanticDocumentParser(

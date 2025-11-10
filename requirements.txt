@@ -13,6 +13,8 @@ pyarrow==16.0.0
 pydantic==2.9.2
 redis==5.2.0
 
+unstructured[all-docs]==0.17.2
+
 # Testing
 pytest
 pytest-cov 
