@@ -1,6 +1,6 @@
 from typing import List
 
-from CriadexSDK import CriadexSDK
+from CriadexSDK.ragflow_sdk import RAGFlowSDK as CriadexSDK
 from fastapi import UploadFile
 from redis.asyncio import Redis
 

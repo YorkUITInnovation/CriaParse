@@ -13,7 +13,7 @@ class Worker:
             self,
             worker_id: int
     ):
-        self._worker_id: str = f"Llama-{worker_id}"
+        self._worker_id: str = f"Ragflow-{worker_id}"
         self._task: asyncio.Task | None = None
         self._queue: Queue[Job] = Queue()
         self._logger: logging.Logger = logging.getLogger('uvicorn.info')
@@ -64,6 +64,6 @@ class Worker:
                 break
 
             # Ignore exceptions & log
-            except Exception:
-                self._logger.error(self._logger_prefix + f"Worker {self._worker_id} encountered an error while processing job \"{current_job_id}\".", exc_info=True)
+            except Exception as e:
+                self._logger.error(self._logger_prefix + f"Worker {self._worker_id} encountered an error while processing job \"{current_job_id}\".", exc_info=e)
                 continue

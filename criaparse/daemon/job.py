@@ -6,8 +6,7 @@ import time
 import uuid
 from typing import TYPE_CHECKING, Awaitable, Dict
 
-from CriadexSDK import CriadexSDK
-from CriadexSDK.routers.models.azure import ModelAboutRoute
+from CriadexSDK.ragflow_sdk import RAGFlowSDK as CriadexSDK
 from fastapi import UploadFile
 from pydantic import BaseModel, PrivateAttr, Field
 from redis import Redis
@@ -25,6 +24,7 @@ class Job:
     def __init__(
             self,
             job_data: JobData,
+            criadex: CriadexSDK
     ):
         """Create a Job instance"""
 
@@ -33,6 +33,7 @@ class Job:
 
         # The Redis data model
         self._data: JobData = job_data
+        self._criadex: CriadexSDK = criadex
 
     @classmethod
     async def create(
@@ -67,7 +68,7 @@ class Job:
         )
 
         # Create Job
-        job: "Job" = cls(job_data=job_data)
+        job: "Job" = cls(job_data=job_data, criadex=criadex)
 
         # Get the model information dynamically
         if kwargs['llm_model_id'] and kwargs['embedding_model_id']:
@@ -75,8 +76,8 @@ class Job:
             embedding_model_id = kwargs.pop('embedding_model_id')
 
             # Get the model info from Criadex
-            llm_model_info: ModelAboutRoute.Response = await criadex.models.azure.about(model_id=llm_model_id)
-            embedding_model_info: ModelAboutRoute.Response = await criadex.models.azure.about(model_id=embedding_model_id)
+            llm_model_info = await criadex.models.about(model_id=llm_model_id)
+            embedding_model_info = await criadex.models.about(model_id=embedding_model_id)
 
             kwargs['llm_model_info'] = llm_model_info
             kwargs['embedding_model_info'] = embedding_model_info
@@ -108,6 +109,11 @@ class Job:
     def data(self) -> JobData:
         """Redis model for the ob"""
         return self._data
+
+    @property
+    def criadex(self) -> CriadexSDK:
+        """Criadex SDK client"""
+        return self._criadex
 
     async def set_steps(
             self,

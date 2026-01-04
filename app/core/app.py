@@ -145,7 +145,7 @@ class CriaParseAPI(FastAPI):
         )
 
         # Authenticate it
-        await criadex_sdk.authenticate(api_key=config.CRIADEX_CREDENTIALS.api_key)
+        await asyncio.to_thread(criadex_sdk.authenticate, api_key=config.CRIADEX_CREDENTIALS.api_key)
 
         # Get the Redis Pool
         redis_pool: Redis = await from_url(str(config.REDIS_CREDENTIALS))
@@ -164,7 +164,7 @@ class CriaParseAPI(FastAPI):
         # Close pools
         await redis_pool.aclose()
         # noinspection PyProtectedMember
-        await criadex_sdk._httpx.aclose()
+        criadex_sdk._httpx.close()
 
         criaparse_api.logger.info("Shutting down Criaparse...")
 
