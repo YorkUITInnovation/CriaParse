@@ -71,13 +71,26 @@ class Job:
         job: "Job" = cls(job_data=job_data, criadex=criadex)
 
         # Get the model information dynamically
-        if kwargs['llm_model_id'] and kwargs['embedding_model_id']:
+        if kwargs.get('llm_model_id') and kwargs.get('embedding_model_id'):
             llm_model_id = kwargs.pop('llm_model_id')
             embedding_model_id = kwargs.pop('embedding_model_id')
 
-            # Get the model info from Criadex
-            llm_model_info = await criadex.models.about(model_id=llm_model_id)
-            embedding_model_info = await criadex.models.about(model_id=embedding_model_id)
+            # Get the model info from Criadex with basic error handling so job creation
+            # fails fast and clearly if models are unavailable or misconfigured.
+            try:
+                llm_model_info = await criadex.models.about(model_id=llm_model_id)
+                embedding_model_info = await criadex.models.about(model_id=embedding_model_id)
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to retrieve model information for "
+                    f"LLM={llm_model_id}, Embedding={embedding_model_id}: {e}"
+                ) from e
+
+            if llm_model_info is None or embedding_model_info is None:
+                raise ValueError(
+                    f"Model information not found for LLM={llm_model_id}, "
+                    f"Embedding={embedding_model_id}"
+                )
 
             kwargs['llm_model_info'] = llm_model_info
             kwargs['embedding_model_info'] = embedding_model_info
@@ -229,7 +242,7 @@ class JobData(BaseModel):
 
     async def delete(self) -> None:
         """Delete the job data from redis"""
-        await self._redis.delete(self._create_key(job_id=self.job_id))
+        await self._redis.delete(self._create_key(self.job_id))
 
     @classmethod
     async def from_redis(cls, job_id: str, redis: Redis) -> JobData | None:

@@ -144,8 +144,8 @@ class CriaParseAPI(FastAPI):
             error_stacktrace=False
         )
 
-        # Authenticate it
-        await asyncio.to_thread(criadex_sdk.authenticate, api_key=config.CRIADEX_CREDENTIALS.api_key)
+        # Authenticate it (synchronous, non-blocking to event loop)
+        criadex_sdk.authenticate(api_key=config.CRIADEX_CREDENTIALS.api_key)
 
         # Get the Redis Pool
         redis_pool: Redis = await from_url(str(config.REDIS_CREDENTIALS))
