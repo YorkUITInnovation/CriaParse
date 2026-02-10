@@ -9,6 +9,7 @@ async def test_paragraph_parser_parse():
 
     # Mock the ParserFile
     mock_file = AsyncMock(spec=ParserFile)
+    mock_file.content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     mock_file.buffer = b"mock file content"
 
     # Mock the run_converter function
@@ -36,5 +37,9 @@ def test_paragraph_parser_strategy():
 
 def test_paragraph_parser_accepted_mimetypes():
     parser = ParagraphParser()
-    expected_mimetypes = ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+    expected_mimetypes = [
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/markdown",
+        "text/plain",
+    ]
     assert parser.accepted_mimetypes() == expected_mimetypes
