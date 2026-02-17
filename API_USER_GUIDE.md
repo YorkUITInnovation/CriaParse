@@ -111,3 +111,22 @@ Response (200 OK):
   }
 }
 ```
+
+Note: While the job is still running, the `message` field will be `"Currently parsing the document."` and `finished` will be `false`.
+
+---
+
+## 2. Health Check
+
+### 2.1 Health Check
+GET /health_check
+
+Request:
+```bash
+curl "${HOST}:${PORT}/health_check"
+```
+
+Response (200 OK):
+```
+Pong!
+```
