@@ -41,7 +41,7 @@ class RAGFlowWrapper(RAGFlow):
             "file_metadata": {}
         }
 
-        attempts = 4
+        attempts = 2
         for attempt in range(attempts):
             try:
                 return await self._criadex_sdk.content.upload(group_name=self._dataset_id, file=payload)
@@ -52,6 +52,11 @@ class RAGFlowWrapper(RAGFlow):
                 # failures by status/message instead of importing SDK-specific
                 # exception classes that may not exist in older releases.
                 is_retryable_api = isinstance(status_code, int) and status_code >= 500
+                is_group_not_found = (
+                    status_code == 404
+                    or "group_not_found" in message
+                    or "group not found" in message
+                )
                 is_retryable_net = any(
                     token in message for token in (
                         "timeout",
@@ -61,10 +66,11 @@ class RAGFlowWrapper(RAGFlow):
                         "readtimeout",
                     )
                 )
-                if (is_retryable_api or is_retryable_net) and attempt < attempts - 1:
+                should_fallback = is_retryable_api or is_retryable_net or is_group_not_found
+                if should_fallback and attempt < attempts - 1:
                     await asyncio.sleep(2 ** attempt)
                     continue
-                if is_retryable_api or is_retryable_net:
+                if should_fallback:
                     logging.getLogger(__name__).warning(
                         "RAGFlow upload unavailable for dataset '%s' after %d attempts; using local parse fallback: %s",
                         self._dataset_id,
