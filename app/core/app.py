@@ -141,7 +141,9 @@ class CriaParseAPI(FastAPI):
         # Create the Criadex SDK
         criadex_sdk: CriadexSDK = CriadexSDK(
             api_base=config.CRIADEX_CREDENTIALS.api_base,
-            error_stacktrace=False
+            error_stacktrace=False,
+            timeout=config.CRIADEX_SDK_TIMEOUT,
+            max_retries=config.CRIADEX_SDK_MAX_RETRIES,
         )
 
         # Authenticate it (synchronous, non-blocking to event loop)
