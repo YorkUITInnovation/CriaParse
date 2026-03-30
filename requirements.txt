@@ -22,5 +22,5 @@ pytest-mock
 pytest-asyncio 
 
 # update after merge to master
-SemanticDocumentParser @ git+https://github.com/YorkUITInnovation/SemanticDocumentParser.git@feature/ragflow-migration
-criadexsdk @ git+https://github.com/YorkUITInnovation/CriadexSDK.git@feature/ragflow-migration
+SemanticDocumentParser @ git+https://github.com/YorkUITInnovation/SemanticDocumentParser.git@feature/child_bot
+criadexsdk @ git+https://github.com/YorkUITInnovation/CriadexSDK.git@feature/child_bot

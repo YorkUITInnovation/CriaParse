@@ -65,5 +65,27 @@ class Worker:
 
             # Ignore exceptions & log
             except Exception as e:
-                self._logger.error(self._logger_prefix + f"Worker {self._worker_id} encountered an error while processing job \"{current_job_id}\".", exc_info=e)
+                # Log the error and mark the job as finished with an error response
+                self._logger.error(
+                    self._logger_prefix
+                    + f"Worker {self._worker_id} encountered an error while processing job \"{current_job_id}\".",
+                    exc_info=e
+                )
+
+                try:
+                    # Best-effort attempt to mark the job as finished so clients are not stuck waiting
+                    from criaparse.models import ParserResponse
+
+                    error_response = ParserResponse(
+                        elements=[],
+                        assets=[],
+                        timings={"error": str(e)}
+                    )
+                    await job.set_response(response=error_response)
+                except Exception as update_error:
+                    self._logger.error(
+                        self._logger_prefix
+                        + f"Worker {self._worker_id} failed to update job status for \"{current_job_id}\": {update_error}"
+                    )
+
                 continue

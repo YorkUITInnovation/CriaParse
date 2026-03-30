@@ -1,7 +1,7 @@
 
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
-from criaparse.parsers.generic.generic import GenericParser
+from criaparse.parsers.generic.generic import GenericParser, RAGFlowWrapper
 from criaparse.models import ParserFile
 from criaparse.daemon.job import Job
 from ragflow_sdk import RAGFlow
@@ -49,3 +49,19 @@ async def test_generic_parser_with_mocked_data(mock_semantic_parser, mock_job):
 
     assert result is not None
     assert len(result.elements) > 0
+
+
+@pytest.mark.asyncio
+async def test_ragflow_wrapper_falls_back_on_missing_group(tmp_path):
+    sdk = MagicMock()
+    sdk.content.upload = AsyncMock(
+        side_effect=Exception('[404] {"code":"GROUP_NOT_FOUND","message":"Group not found"}')
+    )
+    wrapper = RAGFlowWrapper(criadex_sdk=sdk, dataset_id="test_dataset")
+    file_path = tmp_path / "sample.txt"
+    file_path.write_text("hello world")
+
+    result = await wrapper.upload_file("test_dataset", str(file_path))
+
+    assert result["document_name"].startswith("local-fallback-")
+    assert sdk.content.upload.await_count == 2

@@ -17,7 +17,7 @@ class APIResponse(BaseModel):
     message: Optional[str] = None
     timestamp: int = round(time.time())
     code: str = "SUCCESS"
-    error: Optional[str] = Field(default=None, json_schema_extra={"hidden": True})
+    error: Optional[str] = Field(default=None)
 
     def dict(self, *args, **kwargs):
 
@@ -29,19 +29,21 @@ class APIResponse(BaseModel):
             404: 'Womp womp. Not found!'
         }.get(self.status)
 
-        data: dict = super().dict(*args, **kwargs)
+        data: dict = super().model_dump(*args, **kwargs)
 
         if data["error"] is None:
             del data["error"]
 
         return data
 
-    model_config = ConfigDict(json_schema_extra=lambda schema, model: {
-        "properties": {
-            k: v for k, v in schema.get("properties", {}).items()
-            if not v.get("hidden", False)
+    model_config = ConfigDict(
+        json_schema_extra=lambda schema, model: {
+            "properties": {
+                k: v for k, v in schema.get("properties", {}).items()
+                if k != "error" or v.get("default") is not None
+            }
         }
-    })
+    )
 
 
 APIResponseModel = TypeVar('APIResponseModel', bound=APIResponse)

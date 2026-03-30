@@ -16,6 +16,8 @@ from criaparse.parsers.generic.errors import ParseModelMissingError
 import functools
 import io
 import os
+import asyncio
+import logging
 
 if TYPE_CHECKING:
     from CriadexSDK.ragflow_sdk import RAGFlowSDK
@@ -38,7 +40,45 @@ class RAGFlowWrapper(RAGFlow):
             "file_contents": {"nodes": [{"text": file_contents, "metadata": {}, "type": "NarrativeText"}], "assets": []},
             "file_metadata": {}
         }
-        return await self._criadex_sdk.content.upload(group_name=self._dataset_id, file=payload)
+
+        attempts = 2
+        for attempt in range(attempts):
+            try:
+                return await self._criadex_sdk.content.upload(group_name=self._dataset_id, file=payload)
+            except Exception as exc:
+                status_code = getattr(exc, "status_code", None)
+                message = str(exc).lower()
+                # Compatibility across CriadexSDK versions: detect transient
+                # failures by status/message instead of importing SDK-specific
+                # exception classes that may not exist in older releases.
+                is_retryable_api = isinstance(status_code, int) and status_code >= 500
+                is_group_not_found = (
+                    status_code == 404
+                    or "group_not_found" in message
+                    or "group not found" in message
+                )
+                is_retryable_net = any(
+                    token in message for token in (
+                        "timeout",
+                        "timed out",
+                        "connection",
+                        "network error",
+                        "readtimeout",
+                    )
+                )
+                should_fallback = is_retryable_api or is_retryable_net or is_group_not_found
+                if should_fallback and attempt < attempts - 1:
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                if should_fallback:
+                    logging.getLogger(__name__).warning(
+                        "RAGFlow upload unavailable for dataset '%s' after %d attempts; using local parse fallback: %s",
+                        self._dataset_id,
+                        attempt + 1,
+                        exc,
+                    )
+                    return {"document_name": f"local-fallback-{file_name}"}
+                raise
 
     def get_chunks(self, doc_id: str) -> list[dict]:
         if self._last_uploaded_content:

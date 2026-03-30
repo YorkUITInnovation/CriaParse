@@ -21,8 +21,9 @@ POST /parser/queue
   - `embedding_model_id` (int, optional): The ID of the embedding model to use.
   - `dataset_id` (string, optional): The ID of the dataset to associate with the parsed document.
   - `al_extension` (boolean, optional): Whether to use the al extension.
+- Note: `group_by_h1` is automatically set to `true` for this endpoint.
 - Request Body:
-  - `file`: The file to parse.
+  - `file` (multipart/form-data): The file to parse.
 - Response 200 OK (`ParserQueueResponse`):
   ```json
   {
@@ -47,7 +48,7 @@ POST /parser/queue
 GET /parser/poll
 - Description: Poll the results of a file parse job.
 - Query Parameters:
-  - `job_id` (string, required): The ID of the job to poll.
+  - `job_id` (string/UUID, required): The ID of the job to poll (must be valid UUID format).
 - Response 200 OK (`ParserPollResponse`):
   ```json
   {
@@ -177,4 +178,14 @@ GET /parser/strategies
   }
   ```
 
-```
+---
+
+## 2. Health Check
+
+### 2.1 Health Check
+GET /health_check
+- Description: Check if the server is online (used for Docker health checks).
+- Response 200 OK: Plain text
+  ```
+  Pong!
+  ```
