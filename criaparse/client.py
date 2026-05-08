@@ -89,9 +89,5 @@ class CriaParse:
         if job_data is None:
             return None
 
-        # If it's finished, delete the key as we are retrieving the parse data
-        if job_data.finished:
-            await job_data.delete()
-
-        # Return the data
+        # Keep completed jobs available for repeated poll calls until Redis expiry.
         return job_data
