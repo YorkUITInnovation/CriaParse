@@ -96,3 +96,8 @@ class Parser(ABC):
     def name(cls) -> str:
         return cls.strategy().value
 
+    @classmethod
+    def requires_models(cls) -> bool:
+        """Whether Criadex model metadata must be resolved before parsing."""
+        return False
+

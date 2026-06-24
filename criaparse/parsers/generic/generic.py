@@ -127,6 +127,11 @@ class GenericParser(Parser):
     def strategy(cls) -> str:
         return ParserStrategy.GENERIC
 
+    @classmethod
+    def requires_models(cls) -> bool:
+        # Semantic parsing uses dataset_id + RAGFlow; LLM/embedding IDs are not consumed here.
+        return False
+
     def supports_file(self, file: UploadFile) -> bool:
         """
         Override method to support/allow all files
@@ -179,7 +184,7 @@ class GenericParser(Parser):
         # Update the initial # of steps
         await self._set_initial_steps(job, al_extension)
 
-        dataset_id: str = kwargs['dataset_id']
+        dataset_id: str = kwargs.get('dataset_id', 'local')
         ragflow_client: RAGFlow = RAGFlowWrapper(job.criadex, dataset_id)
 
 

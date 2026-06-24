@@ -1,3 +1,4 @@
+import re
 from typing import List
 
 from criaparse.models import Element, ParserResponse, ParserFile, ParserStrategy, ElementType
@@ -27,6 +28,7 @@ class ParagraphParser(Parser):
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "text/markdown",
             "text/plain",
+            "text/html",
         ]
 
     async def _parse(self, file: ParserFile, **kwargs) -> ParserResponse:
@@ -44,13 +46,17 @@ class ParagraphParser(Parser):
             )
             return ParserResponse(elements=parsed_elements)
 
-        # Fallback for text-like inputs (e.g., markdown / plain text)
+        # Fallback for text-like inputs (e.g., markdown / plain text / html)
         raw_bytes = file.buffer.read()
         try:
             text = raw_bytes.decode("utf-8", errors="ignore")
         finally:
             # Ensure buffer can be reused by any downstream code if needed
             file.buffer.seek(0)
+
+        if file.content_type == "text/html":
+            text = re.sub(r"<[^>]+>", " ", text)
+            text = re.sub(r"\s+", " ", text).strip()
 
         # Naive paragraph splitter: split on blank lines, then trim.
         paragraphs: List[str] = []
