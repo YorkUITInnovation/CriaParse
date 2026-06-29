@@ -70,8 +70,12 @@ class Job:
         # Create Job
         job: "Job" = cls(job_data=job_data, criadex=criadex)
 
-        # Get the model information dynamically
-        if kwargs.get('llm_model_id') and kwargs.get('embedding_model_id'):
+        # Resolve Criadex model metadata only for parsers that need it.
+        if (
+            parser.requires_models()
+            and kwargs.get('llm_model_id')
+            and kwargs.get('embedding_model_id')
+        ):
             llm_model_id = kwargs.pop('llm_model_id')
             embedding_model_id = kwargs.pop('embedding_model_id')
 

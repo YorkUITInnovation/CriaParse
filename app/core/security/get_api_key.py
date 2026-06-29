@@ -1,4 +1,5 @@
 import logging
+import time
 from abc import abstractmethod
 from typing import Optional
 
@@ -9,12 +10,33 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from app.controllers.schemas import UnauthorizedResponse
+from app.core import config
 
 api_key_header: APIKeyQuery = APIKeyQuery(name="x-api-key", auto_error=False)
 api_key_query: APIKeyHeader = APIKeyHeader(name="x-api-key", auto_error=False)
 
 
 class GetApiKey:
+
+    _auth_cache = {}
+    _group_auth_cache = {}
+
+    @staticmethod
+    def _normalize_auth_response(response) -> dict:
+        """Normalize SDK auth responses into a consistent dict payload."""
+        if isinstance(response, dict):
+            return dict(response)
+
+        payload = {
+            "status": getattr(response, "status", 200),
+        }
+
+        if hasattr(response, "master"):
+            payload["master"] = bool(getattr(response, "master"))
+        if hasattr(response, "authorized"):
+            payload["authorized"] = bool(getattr(response, "authorized"))
+
+        return payload
 
     def __init__(self):
         self.request: Optional[Request] = None
@@ -63,47 +85,87 @@ class GetApiKey:
 
     async def get_auth(self):
 
-        response = await self.criadex.auth.check(
-            api_key=self.api_key
-        )
+        now = time.time()
+        cache_entry = self._auth_cache.get(self.api_key)
+        if cache_entry and float(cache_entry.get("expires_at", 0)) > now:
+            cached_payload = dict(cache_entry.get("response", {}))
+            cached_payload["cached"] = True
+            return cached_payload
 
-        # Be tolerant to dict responses from SDK (httpx json)
-        status = None
-        if isinstance(response, dict):
-            status = response.get("status", 200)
-        else:
-            status = getattr(response, "status", 200)
+        try:
+            response = await self.criadex.auth.check(
+                api_key=self.api_key
+            )
+        except Exception as exc:
+            if cache_entry and float(cache_entry.get("expires_at", 0)) > now:
+                logging.warning(
+                    "Transient auth.check failure for cached key; allowing cached auth: %s",
+                    exc
+                )
+                cached_payload = dict(cache_entry.get("response", {}))
+                cached_payload["cached"] = True
+                return cached_payload
+            raise
+
+        normalized = self._normalize_auth_response(response)
+        status = normalized.get("status", 200)
 
         if status != 200:
-            logging.error("Failed to check API key. Received payload: " + str(response))
+            logging.error("Failed to check API key. Received payload: " + str(normalized))
             raise BadAPIKeyException(
                 status_code=500,
                 detail="Failed to check API key due to an error!"
             )
 
-        return response
+        self._auth_cache[self.api_key] = {
+            "expires_at": now + max(1, int(config.API_KEY_AUTH_CACHE_TTL)),
+            "response": normalized,
+        }
+
+        return normalized
 
     async def get_group_auth(self, group_name: str):
 
-        response = await self.criadex.group_auth.check(
-            group_name=group_name,
-            api_key=self.api_key
-        )
+        cache_key = f"{self.api_key}:{group_name}"
+        now = time.time()
+        cache_entry = self._group_auth_cache.get(cache_key)
+        if cache_entry and float(cache_entry.get("expires_at", 0)) > now:
+            cached_payload = dict(cache_entry.get("response", {}))
+            cached_payload["cached"] = True
+            return cached_payload
 
-        status = None
-        if isinstance(response, dict):
-            status = response.get("status", 200)
-        else:
-            status = getattr(response, "status", 200)
+        try:
+            response = await self.criadex.group_auth.check(
+                group_name=group_name,
+                api_key=self.api_key
+            )
+        except Exception as exc:
+            if cache_entry and float(cache_entry.get("expires_at", 0)) > now:
+                logging.warning(
+                    "Transient group_auth.check failure for cached key/group; allowing cached auth: %s",
+                    exc
+                )
+                cached_payload = dict(cache_entry.get("response", {}))
+                cached_payload["cached"] = True
+                return cached_payload
+            raise
+
+        normalized = self._normalize_auth_response(response)
+        status = normalized.get("status", 200)
 
         if status != 200:
-            logging.error("Failed to check API key. Received payload: " + str(response))
+            logging.error("Failed to check API key. Received payload: " + str(normalized))
             raise BadAPIKeyException(
                 status_code=500,
                 detail="Failed to check API key due to an error!"
             )
 
-        return response
+        self._group_auth_cache[cache_key] = {
+            "expires_at": now + max(1, int(config.API_KEY_AUTH_CACHE_TTL)),
+            "response": normalized,
+        }
+
+        return normalized
 
     async def __call__(
             self,

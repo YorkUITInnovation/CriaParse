@@ -52,3 +52,4 @@ CRIADEX_CREDENTIALS: CriadexCredentials = CriadexCredentials(
 PARSE_WORKERS = int(os.environ.get('PARSE_WORKERS', "4"))
 CRIADEX_SDK_TIMEOUT = float(os.environ.get("CRIADEX_SDK_TIMEOUT", "5.0"))
 CRIADEX_SDK_MAX_RETRIES = int(os.environ.get("CRIADEX_SDK_MAX_RETRIES", "1"))
+API_KEY_AUTH_CACHE_TTL = int(os.environ.get("API_KEY_AUTH_CACHE_TTL", "60"))

@@ -20,6 +20,31 @@ from .middleware import StatusMiddleware
 from .security.get_api_key import BadAPIKeyException, GetApiKey
 
 
+class SemanticImageDownloadTracebackFilter(logging.Filter):
+    """Remove noisy tracebacks for expected non-fatal image download warnings."""
+
+    KNOWN_WARNING_PREFIXES: tuple[str, ...] = (
+        "Failed to download an image for a file.",
+        "Failed to download image ",
+    )
+    _logged_warning_once: bool = False
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        if any(message.startswith(prefix) for prefix in self.KNOWN_WARNING_PREFIXES):
+            record.exc_info = None
+            record.exc_text = None
+            if self._logged_warning_once:
+                return False
+            self._logged_warning_once = True
+            record.msg = (
+                "Image download failed for at least one parsed file; "
+                "continuing without image caption data."
+            )
+            record.args = ()
+        return True
+
+
 class CriaParseAPI(FastAPI):
     """
     FastAPI server
@@ -66,6 +91,11 @@ class CriaParseAPI(FastAPI):
         # Disable aiomysql warnings
         logging.getLogger('asyncio').setLevel(logging.CRITICAL)
         warnings.filterwarnings('ignore', module='aiomysql')
+
+        # SemanticDocumentParser may emit expected image-download warnings with full
+        # tracebacks when remote assets are inaccessible. Keep the warning text
+        # but suppress traceback noise to preserve log signal.
+        logging.getLogger().addFilter(SemanticImageDownloadTracebackFilter())
 
         return _app
 

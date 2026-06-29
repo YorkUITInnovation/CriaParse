@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import AsyncMock, patch, Mock
 from criaparse.models import ParserFile, ParserResponse, Element, ElementType, ParserStrategy
 from criaparse.parsers.paragraph.paragraph import ParagraphParser
+from criaparse.parsers.generic.generic import GenericParser
 
 @pytest.mark.asyncio
 async def test_paragraph_parser_parse():
@@ -41,5 +42,10 @@ def test_paragraph_parser_accepted_mimetypes():
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "text/markdown",
         "text/plain",
+        "text/html",
     ]
     assert parser.accepted_mimetypes() == expected_mimetypes
+
+def test_paragraph_parser_does_not_require_models():
+    assert ParagraphParser.requires_models() is False
+    assert GenericParser.requires_models() is False
